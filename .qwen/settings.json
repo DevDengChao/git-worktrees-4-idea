@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(E:\\intellij-community\\plugins\\git4idea\\src\\git4idea\\workingTrees\\ui/**)",
+      "Read(E:\\intellij-community\\plugins\\git4idea\\src\\git4idea\\workingTrees/**)"
+    ]
+  },
+  "$version": 3
+}

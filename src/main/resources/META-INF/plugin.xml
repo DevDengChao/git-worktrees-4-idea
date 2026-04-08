@@ -1,6 +1,6 @@
 <idea-plugin>
     <id>dev.dengchao.idea.plugin.git.worktrees</id>
-    <name>Git Worktrees for IDEA</name>
+    <name>Git Worktrees</name>
     <vendor email="2325690622@qq.com">DengChao</vendor>
 
     <depends>com.intellij.modules.platform</depends>
