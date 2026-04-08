@@ -5,6 +5,7 @@ import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.ui.MessageDialogBuilder
 import dev.dengchao.idea.plugin.git.worktrees.Gw4iBundle
+import dev.dengchao.idea.plugin.git.worktrees.services.DeleteWorktreeBranchDecision
 import dev.dengchao.idea.plugin.git.worktrees.services.GitWorktreesOperationsService
 import dev.dengchao.idea.plugin.git.worktrees.ui.GitWorktreesDataKeys
 
@@ -25,16 +26,65 @@ class RemoveSelectedWorktreeAction : DumbAwareAction(
         val repository = e.getData(GitWorktreesDataKeys.CURRENT_REPOSITORY) ?: return
         val worktree = e.getData(GitWorktreesDataKeys.SELECTED_WORKTREE) ?: return
 
-        val confirmed = MessageDialogBuilder.yesNo(
-            Gw4iBundle.message("GitWorktrees.dialog.remove.worktree.title"),
-            Gw4iBundle.message("GitWorktrees.dialog.remove.worktree.message", worktree.path),
-        )
-            .yesText(Gw4iBundle.message("GitWorktrees.dialog.remove.worktree.yes"))
-            .ask(project)
+        // Check if the worktree's branch is being used only by this worktree
+        // If branch name exists and could be deleted, offer three options
+        val branchName = worktree.branchName
+        if (branchName != null && !worktree.isMain) {
+            // Check if we should offer to delete the branch too
+            val decision = showRemovalDialog(project, branchName, worktree.path)
+            when (decision) {
+                DeleteWorktreeBranchDecision.CANCEL -> return
+                DeleteWorktreeBranchDecision.DELETE_WORKTREE_ONLY -> {
+                    // Only remove worktree, keep branch
+                    GitWorktreesOperationsService.getInstance(project)
+                        .removeWorktree(repository, worktree.path, notifyResult = true)
+                }
+                DeleteWorktreeBranchDecision.DELETE_WORKTREE_AND_BRANCH -> {
+                    // Remove both worktree and branch
+                    GitWorktreesOperationsService.getInstance(project)
+                        .handleBranchDeletionWithWorktree(repository, branchName, worktree.path)
+                }
+            }
+        } else {
+            // Main worktree or detached - just remove the worktree
+            val confirmed = MessageDialogBuilder.yesNo(
+                Gw4iBundle.message("GitWorktrees.dialog.remove.worktree.title"),
+                Gw4iBundle.message("GitWorktrees.dialog.remove.worktree.message", worktree.path),
+            )
+                .yesText(Gw4iBundle.message("GitWorktrees.dialog.remove.worktree.yes"))
+                .ask(project)
 
-        if (!confirmed) return
+            if (!confirmed) return
 
-        GitWorktreesOperationsService.getInstance(project).removeWorktree(repository, worktree.path)
+            GitWorktreesOperationsService.getInstance(project)
+                .removeWorktree(repository, worktree.path)
+        }
+
         e.getData(GitWorktreesDataKeys.PANEL)?.reload()
+    }
+
+    private fun showRemovalDialog(
+        project: com.intellij.openapi.project.Project,
+        branchName: String,
+        worktreePath: String,
+    ): DeleteWorktreeBranchDecision {
+        val result = com.intellij.openapi.ui.Messages.showDialog(
+            project,
+            Gw4iBundle.message("GitWorktrees.dialog.remove.worktree.used.branch.message", branchName, worktreePath),
+            Gw4iBundle.message("GitWorktrees.dialog.remove.worktree.used.branch.title"),
+            arrayOf(
+                Gw4iBundle.message("GitWorktrees.dialog.remove.worktree.used.branch.delete.both"),
+                Gw4iBundle.message("GitWorktrees.dialog.remove.worktree.used.branch.delete.worktree.only"),
+                com.intellij.CommonBundle.getCancelButtonText(),
+            ),
+            0,
+            com.intellij.openapi.ui.Messages.getWarningIcon(),
+        )
+
+        return when (result) {
+            0 -> DeleteWorktreeBranchDecision.DELETE_WORKTREE_AND_BRANCH
+            1 -> DeleteWorktreeBranchDecision.DELETE_WORKTREE_ONLY
+            else -> DeleteWorktreeBranchDecision.CANCEL
+        }
     }
 }

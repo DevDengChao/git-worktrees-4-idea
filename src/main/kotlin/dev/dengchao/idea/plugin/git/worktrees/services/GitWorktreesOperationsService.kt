@@ -15,6 +15,15 @@ import git4idea.commands.GitUntrackedFilesOverwrittenByOperationDetector
 import git4idea.repo.GitRepository
 import git4idea.repo.GitRepositoryManager
 
+/**
+ * Decision made by user when trying to delete a branch that is used by a worktree.
+ */
+enum class DeleteWorktreeBranchDecision {
+    CANCEL,
+    DELETE_WORKTREE_ONLY,
+    DELETE_WORKTREE_AND_BRANCH
+}
+
 @Service(Service.Level.PROJECT)
 class GitWorktreesOperationsService(private val project: Project) {
 
@@ -93,15 +102,72 @@ class GitWorktreesOperationsService(private val project: Project) {
         repository.update()
     }
 
-    private fun checkoutBranchWithConflictHandling(repository: GitRepository, branchName: String): Boolean {
+    /**
+     * Checkout a worktree's branch in the current repository.
+     * Offers to force checkout if there are conflicting local changes.
+     */
+    fun checkoutWorktreeBranch(
+        repository: GitRepository,
+        branchName: String,
+        notifyResult: Boolean = true,
+    ): Boolean {
+        return checkoutBranchWithConflictHandling(repository, branchName, notifyResult)
+    }
+
+    /**
+     * Handle branch deletion when it's used by a worktree.
+     * Shows a dialog offering three options:
+     * - Cancel
+     * - Delete worktree only (keep the branch)
+     * - Delete both worktree and branch
+     */
+    fun handleBranchDeletionWithWorktree(
+        repository: GitRepository,
+        branchName: String,
+        worktreePath: String,
+    ): Boolean {
+        val decision = showBranchUsedByWorktreeDialog(branchName, worktreePath)
+        if (decision == DeleteWorktreeBranchDecision.CANCEL) {
+            return false
+        }
+
+        // First, remove the worktree
+        val removeWorktreeResult = runRemoveWorktree(repository, worktreePath)
+        if (!removeWorktreeResult.success()) {
+            notifyDeleteWorktreeFailed(removeWorktreeResult)
+            return false
+        }
+
+        // If user chose to delete both, delete the branch too
+        if (decision == DeleteWorktreeBranchDecision.DELETE_WORKTREE_AND_BRANCH) {
+            return deleteBranch(repository, branchName, force = true, notifyResult = true)
+        }
+
+        // DELETE_WORKTREE_ONLY: worktree removed, branch kept
+        refreshRepository(repository)
+        VcsNotifier.getInstance(project).notifySuccess(
+            "gw4i.worktree.delete.success",
+            "",
+            Gw4iBundle.message("GitWorktrees.notification.worktree.delete.success", worktreePath),
+        )
+        return true
+    }
+
+    private fun checkoutBranchWithConflictHandling(
+        repository: GitRepository,
+        branchName: String,
+        notifyResult: Boolean = true,
+    ): Boolean {
         val initialResult = runCheckout(repository, branchName, force = false)
         if (initialResult.commandResult.success()) {
             refreshRepository(repository)
-            VcsNotifier.getInstance(project).notifySuccess(
-                "gw4i.checkout.success",
-                "",
-                Gw4iBundle.message("GitWorktrees.notification.checkout.success", branchName),
-            )
+            if (notifyResult) {
+                VcsNotifier.getInstance(project).notifySuccess(
+                    "gw4i.checkout.success",
+                    "",
+                    Gw4iBundle.message("GitWorktrees.notification.checkout.success", branchName),
+                )
+            }
             return true
         }
 
@@ -126,12 +192,38 @@ class GitWorktreesOperationsService(private val project: Project) {
         }
 
         refreshRepository(repository)
-        VcsNotifier.getInstance(project).notifySuccess(
-            "gw4i.checkout.success",
-            "",
-            Gw4iBundle.message("GitWorktrees.notification.checkout.success", branchName),
-        )
+        if (notifyResult) {
+            VcsNotifier.getInstance(project).notifySuccess(
+                "gw4i.checkout.success",
+                "",
+                Gw4iBundle.message("GitWorktrees.notification.checkout.success", branchName),
+            )
+        }
         return true
+    }
+
+    private fun showBranchUsedByWorktreeDialog(
+        branchName: String,
+        worktreePath: String,
+    ): DeleteWorktreeBranchDecision {
+        val result = com.intellij.openapi.ui.Messages.showDialog(
+            project,
+            Gw4iBundle.message("GitWorktrees.dialog.remove.worktree.used.branch.message", branchName, worktreePath),
+            Gw4iBundle.message("GitWorktrees.dialog.remove.worktree.used.branch.title"),
+            arrayOf(
+                Gw4iBundle.message("GitWorktrees.dialog.remove.worktree.used.branch.delete.both"),
+                Gw4iBundle.message("GitWorktrees.dialog.remove.worktree.used.branch.delete.worktree.only"),
+                com.intellij.CommonBundle.getCancelButtonText(),
+            ),
+            0, // default button
+            com.intellij.openapi.ui.Messages.getWarningIcon(),
+        )
+
+        return when (result) {
+            0 -> DeleteWorktreeBranchDecision.DELETE_WORKTREE_AND_BRANCH  // YES
+            1 -> DeleteWorktreeBranchDecision.DELETE_WORKTREE_ONLY        // NO
+            else -> DeleteWorktreeBranchDecision.CANCEL                    // CANCEL
+        }
     }
 
     private fun runListWorktrees(repository: GitRepository): GitCommandResult {
