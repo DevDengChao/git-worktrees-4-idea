@@ -1,0 +1,10 @@
+<idea-plugin>
+    <id>dev.dengchao.idea.plugin.git.worktrees</id>
+    <name>Git Worktrees for IDEA</name>
+    <vendor email="2325690622@qq.com">DengChao</vendor>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>Git4Idea</depends>
+
+    <resource-bundle>messages.Gw4iBundle</resource-bundle>
+</idea-plugin>
