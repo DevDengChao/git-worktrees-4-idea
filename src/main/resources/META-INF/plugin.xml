@@ -7,4 +7,56 @@
     <depends>Git4Idea</depends>
 
     <resource-bundle>messages.Gw4iBundle</resource-bundle>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <toolWindow id="Git Worktrees"
+                    factoryClass="dev.dengchao.idea.plugin.git.worktrees.ui.GitWorktreesToolWindowFactory"
+                    icon="AllIcons.Vcs.Branch"
+                    anchor="right"
+                    secondary="true"/>
+    </extensions>
+
+    <actions resource-bundle="messages.Gw4iBundle">
+        <action id="GitWorktrees.ShowToolWindow"
+                class="dev.dengchao.idea.plugin.git.worktrees.actions.ShowGitWorktreesToolWindowAction">
+            <add-to-group group-id="Git.MainMenu" anchor="last"/>
+        </action>
+
+        <action id="GitWorktrees.Refresh"
+                class="dev.dengchao.idea.plugin.git.worktrees.actions.RefreshGitWorktreesAction"/>
+        <action id="GitWorktrees.Checkout"
+                class="dev.dengchao.idea.plugin.git.worktrees.actions.CheckoutSelectedWorktreeAction"/>
+        <action id="GitWorktrees.Open"
+                class="dev.dengchao.idea.plugin.git.worktrees.actions.OpenSelectedWorktreeAction"/>
+        <action id="GitWorktrees.Remove"
+                class="dev.dengchao.idea.plugin.git.worktrees.actions.RemoveSelectedWorktreeAction"
+                icon="AllIcons.General.Delete"/>
+
+        <group id="GitWorktrees.ToolWindow.Toolbar">
+            <reference ref="GitWorktrees.Refresh"/>
+            <separator/>
+            <reference ref="GitWorktrees.Checkout"/>
+            <reference ref="GitWorktrees.Open"/>
+            <reference ref="GitWorktrees.Remove"/>
+        </group>
+
+        <group id="GitWorktrees.ToolWindow.Popup" popup="true">
+            <reference ref="GitWorktrees.Checkout"/>
+            <reference ref="GitWorktrees.Open"/>
+            <separator/>
+            <reference ref="GitWorktrees.Remove"/>
+            <separator/>
+            <reference ref="GitWorktrees.Refresh"/>
+        </group>
+
+        <action id="GitWorktrees.Branch.CheckoutIgnoreOtherWorktrees"
+                class="dev.dengchao.idea.plugin.git.worktrees.actions.CheckoutBranchUsedByAnotherWorktreeAction">
+            <add-to-group group-id="Git.Branch" anchor="first"/>
+        </action>
+
+        <action id="GitWorktrees.Branch.DeleteUsedByWorktree"
+                class="dev.dengchao.idea.plugin.git.worktrees.actions.DeleteBranchUsedByAnotherWorktreeAction">
+            <add-to-group group-id="Git.Branch" anchor="last"/>
+        </action>
+    </actions>
 </idea-plugin>
