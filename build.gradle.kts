@@ -146,17 +146,12 @@ tasks {
         dependsOn(patchChangelog)
     }
 
-    test {
+    withType<Test> {
         useJUnitPlatform()
-        
-        // Always set robot-server.port so UI tests can run if IDE is available
         systemProperty("robot-server.port", "8082")
-        
-        // Don't fail if no tests are discovered (e.g., all UI tests skipped)
-        systemProperty("junit.jupiter.extensions.autodetection.enabled", "true")
-        
-        // Allow test task to succeed even if no tests run
-        setFailOnNoMatchingTests(false)
+        filter {
+            setFailOnNoMatchingTests(false)
+        }
     }
 }
 
