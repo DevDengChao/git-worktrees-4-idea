@@ -33,6 +33,10 @@ repositories {
 dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.opentest4j)
+    testImplementation("com.intellij.remoterobot:remote-robot:0.11.25")
+    testImplementation("com.intellij.remoterobot:remote-fixtures:0.11.25")
+    testImplementation("org.junit.jupiter:junit-jupiter-api:5.10.0")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.10.0")
 
     // IntelliJ Platform Gradle Plugin Dependencies Extension - read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-dependencies-extension.html
     intellijPlatform {
@@ -134,6 +138,13 @@ tasks {
 
     publishPlugin {
         dependsOn(patchChangelog)
+    }
+
+    test {
+        useJUnitPlatform()
+        
+        // Allow running UI tests separately
+        systemProperty("ide.remote.robot.port", "8082")
     }
 }
 
