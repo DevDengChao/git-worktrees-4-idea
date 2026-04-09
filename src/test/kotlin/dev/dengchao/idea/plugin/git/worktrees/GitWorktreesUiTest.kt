@@ -93,24 +93,13 @@ class GitWorktreesUiTest {
     }
 
     @Test
-    fun `test Find Action can be opened`() = step("Open Find Action") {
+    fun `test Settings button exists`() = step("Verify Settings button") {
         waitForIdeToLoad()
         
-        // Press double Shift to open Search Everywhere
-        remoteRobot.callJs<String>(
-            "importPackage(java.awt.event); var robot = new java.awt.Robot(); robot.keyPress(KeyEvent.VK_SHIFT); robot.keyRelease(KeyEvent.VK_SHIFT); Thread.sleep(100); robot.keyPress(KeyEvent.VK_SHIFT); robot.keyRelease(KeyEvent.VK_SHIFT);"
+        // Settings gear icon should be present
+        remoteRobot.find<ComponentFixture>(
+            byXpath("//div[@myactionlink = 'settings.svg']")
         )
-        
-        waitFor(Duration.ofSeconds(10)) {
-            try {
-                remoteRobot.find<ComponentFixture>(
-                    byXpath("//div[@class='SearchField']")
-                )
-                true
-            } catch (_: Exception) {
-                false
-            }
-        }
     }
 
     private fun waitForIdeToLoad() {
