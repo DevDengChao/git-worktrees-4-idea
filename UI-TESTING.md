@@ -1,57 +1,59 @@
 # Git Worktrees 4 IDEA - UI 测试指南
 
+基于 [intellij-ui-test-robot](https://github.com/JetBrains/intellij-ui-test-robot) 实现
+
 ## 快速开始
 
-### 方法 1: 手动 UI 测试（推荐用于开发阶段）
+### 第一步：启动带 Robot Server 的 IDE
 
 ```powershell
-# 终端 1: 启动带 robot-server 的 IDE
+# 在终端 1 中运行（会阻塞，保持运行）
 .\gradlew runIdeForUiTests
+```
 
-# 终端 2: 运行 UI 测试
+这会启动一个 IntelliJ IDEA 实例，并在 `http://localhost:8082` 上运行 Robot Server。
+
+### 第二步：运行 UI 测试
+
+```powershell
+# 在终端 2 中运行
 .\gradlew test --tests "*GitWorktreesUiTest*"
 ```
 
-### 方法 2: 使用浏览器查看 UI 结构
+### 一键运行（后台启动 IDE）
 
-启动 IDE 后访问: http://localhost:8082
-
-这个页面显示当前 IDE 的 UI 组件层级，可用于：
-- 查找组件的 XPath
-- 调试 UI 测试定位器
-- 了解组件结构
-
-## UI 测试架构
-
-### 测试文件
-
-| 文件 | 类型 | 说明 |
-|------|------|------|
-| `GitWorktreesUiTest.kt` | 集成 UI 测试 | 使用 RemoteRobot 测试真实 UI |
-| `GitWorktreesOperationsServiceTest.kt` | 单元测试 | 测试服务层逻辑 |
-| `GitWorktreesActionsTest.kt` | 单元测试 | 测试 Action 启用条件 |
-| `GitWorktreesPanelTest.kt` | 单元测试 | 测试面板数据和 DataKey |
-
-### RemoteRobot 原理
-
+```powershell
+# PowerShell
+Start-Process -NoNewWindow -FilePath ".\gradlew" -ArgumentList "runIdeForUiTests"
+Start-Sleep -Seconds 60  # 等待 IDE 启动
+.\gradlew test --tests "*GitWorktreesUiTest*"
 ```
-┌─────────────┐         HTTP         ┌──────────────────┐
-│  Test Code  │ ──────────────────►   │  IDE + Robot     │
-│  (JUnit)    │ ◄──────────────────   │  Server (:8082)  │
-└─────────────┘                       └──────────────────┘
-     发送指令:                              执行:
-     - click()                          - 查找组件
-     - text = "..."                     - 输入文本
-     - rightClick()                     - 右键菜单
-     - callJs("...")                    - 执行 JS
-```
+
+## 调试 UI 组件
+
+启动 IDE 后，访问 **http://localhost:8082** 可以：
+
+1. **查看 UI 组件树** - 显示当前 IDE 所有组件的层级结构
+2. **调试 XPath** - 在浏览器中测试 XPath 定位器
+3. **获取组件属性** - 查看 class、accessiblename 等属性
+
+这对于编写和调试 UI 测试非常有用！
+
+## 测试文件说明
+
+| 文件 | 类型 | 运行条件 |
+|------|------|----------|
+| `GitWorktreesUiTest.kt` | UI 集成测试 | 需要运行 `runIdeForUiTests` |
+| `GitWorktreesOperationsServiceTest.kt` | 单元测试 | 直接运行 `./gradlew test` |
+| `GitWorktreesActionsTest.kt` | 单元测试 | 直接运行 `./gradlew test` |
+| `GitWorktreesPanelTest.kt` | 单元测试 | 直接运行 `./gradlew test` |
 
 ## 编写 UI 测试示例
 
 ### 查找组件
 
 ```kotlin
-// 按 XPath 查找
+// 按可访问名称查找
 remoteRobot.find<ComponentFixture>(
     byXpath("//div[@accessiblename='Git Worktrees']")
 )
@@ -60,9 +62,14 @@ remoteRobot.find<ComponentFixture>(
 remoteRobot.find<ComponentFixture>(
     byXpath("//div[@class='JBList']")
 )
+
+// 组合条件查找
+remoteRobot.find<ComponentFixture>(
+    byXpath("//div[@class='ActionLink' and @text='Show Git Worktrees']")
+)
 ```
 
-### 等待组件出现
+### 等待组件
 
 ```kotlin
 waitFor(Duration.ofSeconds(10)) {
@@ -75,7 +82,7 @@ waitFor(Duration.ofSeconds(10)) {
 }
 ```
 
-### 模拟用户操作
+### 模拟操作
 
 ```kotlin
 // 点击
@@ -87,17 +94,16 @@ textField.text = "some text"
 // 右键菜单
 list.rightClick()
 
-// 执行 Action
-remoteRobot.action("Find Action").run()
+// 执行 JavaScript
+component.callJs("component.getText();")
 ```
 
 ## CI/CD 集成
 
-GitHub Actions 工作流示例:
+GitHub Actions 示例：
 
 ```yaml
-# .github/workflows/run-ui-tests.yml
-name: Run UI Tests
+name: UI Tests
 on: [push, pull_request]
 
 jobs:
@@ -110,7 +116,7 @@ jobs:
           distribution: 'jbr'
           java-version: '21'
       
-      - name: Start IDE for UI Tests
+      - name: Start IDE
         run: ./gradlew runIdeForUiTests &
       
       - name: Wait for IDE
@@ -122,33 +128,20 @@ jobs:
 
 ## 常见问题
 
-### Q: Connection refused 错误
+### Connection refused
 
 确保 IDE 已启动并监听 8082 端口：
 ```powershell
 netstat -ano | findstr 8082
 ```
 
-### Q: 找不到组件
+### 找不到组件
 
 1. 访问 http://localhost:8082 查看组件树
-2. 使用浏览器开发者工具检查 XPath
-3. 增加 waitFor 超时时间
+2. 使用正确的 XPath 语法
+3. 增加 `waitFor` 超时时间
 
-### Q: 对话框阻塞测试
+### 测试被跳过
 
-使用 `TestDialogManager` 模拟对话框选择：
-```kotlin
-TestDialogManager.setTestDialog(TestDialog { Messages.YES })
-```
-
-## 运行所有测试
-
-```powershell
-# 单元测试（快速，无需 IDE）
-.\gradlew test --tests "*Test*" --exclude-test "*UiTest*"
-
-# UI 测试（需要 IDE 运行）
-.\gradlew runIdeForUiTests &
-.\gradlew test --tests "*UiTest*"
-```
+UI 测试使用了 `@EnabledIfSystemProperty(named = "robot-server.port", matches = ".*")`，
+只有在运行 `runIdeForUiTests` 时才会执行。正常运行 `./gradlew test` 时会自动跳过 UI 测试。

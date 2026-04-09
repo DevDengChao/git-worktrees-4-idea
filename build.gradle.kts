@@ -27,12 +27,21 @@ repositories {
     intellijPlatform {
         defaultRepositories()
     }
+
+    // Remote Robot Repository for UI Testing - https://github.com/JetBrains/intellij-ui-test-robot
+    maven("https://packages.jetbrains.team/maven/p/ij/intellij-dependencies")
 }
 
 // Dependencies are managed with Gradle version catalog - read more: https://docs.gradle.org/current/userguide/version_catalogs.html
 dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.opentest4j)
+
+    // UI Test Robot - https://github.com/JetBrains/intellij-ui-test-robot
+    testImplementation("com.intellij.remoterobot:remote-robot:0.11.23")
+    testImplementation("com.intellij.remoterobot:remote-fixtures:0.11.23")
+    testImplementation("org.junit.jupiter:junit-jupiter-api:5.10.0")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.10.0")
 
     // IntelliJ Platform Gradle Plugin Dependencies Extension - read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-dependencies-extension.html
     intellijPlatform {
@@ -154,12 +163,14 @@ intellijPlatformTesting {
                         "-Dide.mac.message.dialogs.as.sheets=false",
                         "-Djb.privacy.policy.text=<!--999.999-->",
                         "-Djb.consents.confirmation.enabled=false",
+                        "-Didea.trust.all.projects=true",
+                        "-Dide.show.tips.on.startup.default.value=false",
                     )
                 }
             }
 
             plugins {
-                robotServerPlugin()
+                robotServerPlugin("0.11.23")
             }
         }
     }
