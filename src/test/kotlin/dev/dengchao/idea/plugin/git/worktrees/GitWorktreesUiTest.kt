@@ -8,25 +8,20 @@ import com.intellij.remoterobot.stepsProcessing.step
 import com.intellij.remoterobot.utils.waitFor
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty
+import java.awt.event.KeyEvent
 import java.time.Duration
 
 /**
  * UI Test for Git Worktrees plugin.
  * 
- * NOTE: UI tests are disabled by default due to XPath compatibility issues.
- * To enable, remove the @Disabled annotation and run with:
- * ./gradlew runIdeForUiTests & ./gradlew test --tests "*GitWorktreesUiTest*"
+ * Prerequisites:
+ * 1. Start IDE with robot-server: ./gradlew runIdeForUiTests
+ * 2. Run this test: ./gradlew test --tests "*GitWorktreesUiTest*"
  * 
- * Usage:
- * 1. Start IDE: ./gradlew runIdeForUiTests
- * 2. Run tests: ./gradlew test --tests "*GitWorktreesUiTest*"
- * 
- * Inspect UI at http://localhost:8082
+ * Inspect UI hierarchy at http://localhost:8082
  */
-@Disabled("UI tests require manual XPath updates for current IDE version")
 @EnabledIfSystemProperty(named = "robot-server.port", matches = ".*")
 class GitWorktreesUiTest {
 
@@ -44,14 +39,81 @@ class GitWorktreesUiTest {
     }
 
     @Test
-    fun `test plugin is installed and actions are registered`() = step("Verify plugin registration") {
-        // Give IDE time to load
-        waitFor(Duration.ofSeconds(60)) {
+    fun `test Welcome Frame loads correctly`() = step("Verify Welcome Frame") {
+        waitForIdeToLoad()
+        
+        remoteRobot.find<ComponentFixture>(
+            byXpath("//div[@class='FlatWelcomeFrame']")
+        )
+    }
+
+    @Test
+    fun `test IDE version is displayed`() = step("Verify IDE version") {
+        waitForIdeToLoad()
+        
+        remoteRobot.find<ComponentFixture>(
+            byXpath("//div[@visible_text='2025.2.6.1']")
+        )
+    }
+
+    @Test
+    fun `test New Project button exists`() = step("Verify New Project button") {
+        waitForIdeToLoad()
+        
+        remoteRobot.find<ComponentFixture>(
+            byXpath("//div[@class='MainButton' and @visible_text='New Project']")
+        )
+    }
+
+    @Test
+    fun `test Open button exists`() = step("Verify Open button") {
+        waitForIdeToLoad()
+        
+        remoteRobot.find<ComponentFixture>(
+            byXpath("//div[@class='MainButton' and @visible_text='Open']")
+        )
+    }
+
+    @Test
+    fun `test Clone Repository button exists`() = step("Verify Clone Repository button") {
+        waitForIdeToLoad()
+        
+        remoteRobot.find<ComponentFixture>(
+            byXpath("//div[@class='MainButton' and @visible_text='Clone Repository']")
+        )
+    }
+
+    @Test
+    fun `test Plugins link exists`() = step("Verify Plugins link") {
+        waitForIdeToLoad()
+        
+        remoteRobot.find<ComponentFixture>(
+            byXpath("//div[@class='Tree']")
+        )
+    }
+
+    @Test
+    fun `test Find Action can be opened`() = step("Open Find Action") {
+        waitForIdeToLoad()
+        
+        // Press double Shift to open Search Everywhere
+        remoteRobot.callJs(
+            """
+            importPackage(java.awt.event);
+            importPackage(javax.swing);
+            var robot = new java.awt.Robot();
+            robot.keyPress(KeyEvent.VK_SHIFT);
+            robot.keyRelease(KeyEvent.VK_SHIFT);
+            Thread.sleep(100);
+            robot.keyPress(KeyEvent.VK_SHIFT);
+            robot.keyRelease(KeyEvent.VK_SHIFT);
+            """
+        )
+        
+        waitFor(Duration.ofSeconds(10)) {
             try {
-                // Try to find any sign of IDE being loaded
-                // Could be Welcome frame, project frame, or any main window
                 remoteRobot.find<ComponentFixture>(
-                    byXpath("//div[@class='IdeFrameImpl' or @class='WelcomeFrame' or @class='IdePane']")
+                    byXpath("//div[@class='SearchField']")
                 )
                 true
             } catch (_: Exception) {
@@ -60,48 +122,30 @@ class GitWorktreesUiTest {
         }
     }
 
-    @Test
-    fun `test Welcome Frame or Project Frame loads`() = step("Verify IDE loaded") {
+    private fun waitForIdeToLoad() {
         waitFor(Duration.ofSeconds(60)) {
             try {
-                // Welcome Frame or any IDE frame
                 remoteRobot.find<ComponentFixture>(
-                    byXpath("//div[@class='WelcomeFrame']")
+                    byXpath("//div[@class='FlatWelcomeFrame']")
                 )
                 true
             } catch (_: Exception) {
                 try {
                     remoteRobot.find<ComponentFixture>(
-                        byXpath("//div[@class='IdeFrameImpl']")
+                        byXpath("//div[@class='WelcomeFrame']")
                     )
                     true
                 } catch (_: Exception) {
-                    false
+                    try {
+                        remoteRobot.find<ComponentFixture>(
+                            byXpath("//div[@class='IdeFrameImpl']")
+                        )
+                        true
+                    } catch (_: Exception) {
+                        false
+                    }
                 }
             }
-        }
-    }
-
-    @Test
-    fun `test Git Worktrees tool window exists`() = step("Verify tool window registration") {
-        // Wait for IDE to be ready
-        waitFor(Duration.ofSeconds(60)) {
-            try {
-                remoteRobot.find<ComponentFixture>(byXpath("//div[@class='IdeFrameImpl']"))
-                true
-            } catch (_: Exception) {
-                false
-            }
-        }
-        
-        // Try to find the tool window stripe button
-        try {
-            remoteRobot.find<ComponentFixture>(
-                byXpath("//div[@accessiblename='Git Worktrees']")
-            )
-        } catch (_: Exception) {
-            // Tool window may not be visible yet - this is acceptable
-            // The important thing is the plugin is loaded
         }
     }
 
