@@ -42,6 +42,7 @@ dependencies {
     testImplementation("com.intellij.remoterobot:remote-fixtures:0.11.23")
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.10.0")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.10.0")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.10.0")
 
     // IntelliJ Platform Gradle Plugin Dependencies Extension - read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-dependencies-extension.html
     intellijPlatform {
@@ -148,8 +149,13 @@ tasks {
     test {
         useJUnitPlatform()
         
-        // Allow running UI tests separately
-        systemProperty("ide.remote.robot.port", "8082")
+        // Allow running UI tests - pass robot-server.port if set
+        if (project.hasProperty("robot-server.port")) {
+            systemProperty("robot-server.port", project.property("robot-server.port"))
+        } else {
+            // Check if IDE is running on default port
+            systemProperty("robot-server.port", "8082")
+        }
     }
 }
 
