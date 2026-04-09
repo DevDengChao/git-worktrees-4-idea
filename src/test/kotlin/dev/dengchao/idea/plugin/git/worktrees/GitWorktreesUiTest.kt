@@ -97,17 +97,8 @@ class GitWorktreesUiTest {
         waitForIdeToLoad()
         
         // Press double Shift to open Search Everywhere
-        remoteRobot.callJs(
-            """
-            importPackage(java.awt.event);
-            importPackage(javax.swing);
-            var robot = new java.awt.Robot();
-            robot.keyPress(KeyEvent.VK_SHIFT);
-            robot.keyRelease(KeyEvent.VK_SHIFT);
-            Thread.sleep(100);
-            robot.keyPress(KeyEvent.VK_SHIFT);
-            robot.keyRelease(KeyEvent.VK_SHIFT);
-            """
+        remoteRobot.callJs<String>(
+            "importPackage(java.awt.event); var robot = new java.awt.Robot(); robot.keyPress(KeyEvent.VK_SHIFT); robot.keyRelease(KeyEvent.VK_SHIFT); Thread.sleep(100); robot.keyPress(KeyEvent.VK_SHIFT); robot.keyRelease(KeyEvent.VK_SHIFT);"
         )
         
         waitFor(Duration.ofSeconds(10)) {
