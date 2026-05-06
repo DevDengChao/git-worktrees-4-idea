@@ -1,5 +1,6 @@
 package dev.dengchao.idea.plugin.git.worktrees.actions
 
+import com.intellij.icons.AllIcons
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.project.DumbAwareAction
@@ -9,7 +10,7 @@ import dev.dengchao.idea.plugin.git.worktrees.ui.GitWorktreesDataKeys
 class OpenSelectedWorktreeAction : DumbAwareAction(
     Gw4iBundle.message("action.GitWorktrees.Open.text"),
     Gw4iBundle.message("action.GitWorktrees.Open.description"),
-    null,
+    AllIcons.Actions.MenuOpen,
 ) {
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.BGT
 

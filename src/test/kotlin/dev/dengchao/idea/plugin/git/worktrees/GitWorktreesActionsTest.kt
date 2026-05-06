@@ -5,12 +5,16 @@ import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.CustomizedDataContext
 import com.intellij.openapi.actionSystem.DataContext
 import com.intellij.openapi.actionSystem.PlatformDataKeys
+import com.intellij.icons.AllIcons
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.testFramework.LightPlatform4TestCase
 import com.intellij.testFramework.TestActionEvent
+import dev.dengchao.idea.plugin.git.worktrees.actions.CheckoutSelectedWorktreeAction
 import dev.dengchao.idea.plugin.git.worktrees.actions.CheckoutWorktreeInOtherRepositoryAction
+import dev.dengchao.idea.plugin.git.worktrees.actions.OpenSelectedWorktreeAction
+import dev.dengchao.idea.plugin.git.worktrees.actions.RefreshGitWorktreesAction
 import dev.dengchao.idea.plugin.git.worktrees.actions.RemoveSelectedWorktreeAction
 import dev.dengchao.idea.plugin.git.worktrees.actions.ShowGitWorktreesToolWindowAction
 import dev.dengchao.idea.plugin.git.worktrees.model.WorktreeInfo
@@ -26,6 +30,13 @@ import org.junit.Test
  * Tests verify action enablement conditions and data key propagation.
  */
 class GitWorktreesActionsTest : LightPlatform4TestCase() {
+
+    @Test
+    fun `test toolbar actions have semantic icons`() {
+        assertSame(AllIcons.Actions.Refresh, RefreshGitWorktreesAction().templatePresentation.icon)
+        assertSame(AllIcons.Actions.CheckOut, CheckoutSelectedWorktreeAction().templatePresentation.icon)
+        assertSame(AllIcons.Actions.MenuOpen, OpenSelectedWorktreeAction().templatePresentation.icon)
+    }
 
     @Test
     fun `test CheckoutWorktreeInOtherRepositoryAction enabled for non-current worktree`() {

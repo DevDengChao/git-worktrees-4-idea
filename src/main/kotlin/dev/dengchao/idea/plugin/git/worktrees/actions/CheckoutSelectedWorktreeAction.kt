@@ -1,5 +1,6 @@
 package dev.dengchao.idea.plugin.git.worktrees.actions
 
+import com.intellij.icons.AllIcons
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.project.DumbAwareAction
@@ -10,7 +11,7 @@ import dev.dengchao.idea.plugin.git.worktrees.ui.GitWorktreesDataKeys
 class CheckoutSelectedWorktreeAction : DumbAwareAction(
     Gw4iBundle.message("action.GitWorktrees.Checkout.text"),
     Gw4iBundle.message("action.GitWorktrees.Checkout.description"),
-    null,
+    AllIcons.Actions.CheckOut,
 ) {
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.BGT
 
