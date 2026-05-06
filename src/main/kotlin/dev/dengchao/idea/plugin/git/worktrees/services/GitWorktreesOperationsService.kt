@@ -32,6 +32,16 @@ enum class DeleteWorktreeBranchDecision {
     DELETE_WORKTREE_AND_BRANCH
 }
 
+data class BulkRemoveWorktreesTarget(
+    val repository: GitRepository,
+    val worktree: WorktreeInfo,
+)
+
+data class BulkRemoveWorktreesResult(
+    val removedWorktrees: Int,
+    val deletedBranches: Int,
+)
+
 @Service(Service.Level.PROJECT)
 class GitWorktreesOperationsService(private val project: Project) {
 
@@ -297,6 +307,41 @@ class GitWorktreesOperationsService(private val project: Project) {
         return true
     }
 
+    fun removeWorktreesWithBranchDecision(
+        targets: List<BulkRemoveWorktreesTarget>,
+        decision: DeleteWorktreeBranchDecision,
+        notifyResult: Boolean = true,
+    ): BulkRemoveWorktreesResult {
+        if (decision == DeleteWorktreeBranchDecision.CANCEL) {
+            return BulkRemoveWorktreesResult(removedWorktrees = 0, deletedBranches = 0)
+        }
+
+        var removedWorktrees = 0
+        var deletedBranches = 0
+        targets.filterNot { it.worktree.isMain }.forEach { target ->
+            if (!removeWorktree(target.repository, target.worktree.path, notifyResult = false)) {
+                return@forEach
+            }
+
+            removedWorktrees++
+            val branchName = target.worktree.branchName
+            if (decision == DeleteWorktreeBranchDecision.DELETE_WORKTREE_AND_BRANCH && branchName != null) {
+                if (deleteBranch(target.repository, branchName, force = true, notifyResult = false)) {
+                    deletedBranches++
+                }
+            }
+        }
+
+        if (notifyResult && removedWorktrees > 0) {
+            VcsNotifier.getInstance(project).notifySuccess(
+                "gw4i.worktrees.delete.success",
+                "",
+                Gw4iBundle.message("GitWorktrees.notification.worktrees.delete.success", removedWorktrees, deletedBranches),
+            )
+        }
+        return BulkRemoveWorktreesResult(removedWorktrees, deletedBranches)
+    }
+
     fun removeWorktreeAsync(
         repository: GitRepository,
         worktreePath: String,
@@ -325,6 +370,23 @@ class GitWorktreesOperationsService(private val project: Project) {
         object : Task.Backgroundable(project, Gw4iBundle.message("GitWorktrees.task.remove.worktree.title"), true) {
             override fun run(indicator: ProgressIndicator) {
                 removeWorktreeWithBranchDecision(repository, branchName, worktreePath, decision, notifyResult)
+            }
+
+            override fun onFinished() {
+                afterCompletion()
+            }
+        }.queue()
+    }
+
+    fun removeWorktreesWithBranchDecisionAsync(
+        targets: List<BulkRemoveWorktreesTarget>,
+        decision: DeleteWorktreeBranchDecision,
+        notifyResult: Boolean = true,
+        afterCompletion: () -> Unit = {},
+    ) {
+        object : Task.Backgroundable(project, Gw4iBundle.message("GitWorktrees.task.remove.worktree.title"), true) {
+            override fun run(indicator: ProgressIndicator) {
+                removeWorktreesWithBranchDecision(targets, decision, notifyResult)
             }
 
             override fun onFinished() {

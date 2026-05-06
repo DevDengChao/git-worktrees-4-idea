@@ -47,7 +47,7 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
     override fun dispose() = Unit
 
     fun reload() {
-        val selectedPath = selectedWorktree()?.path
+        val selectedPaths = selectedWorktrees().map { it.worktree.path }.toSet()
         object : Task.Backgroundable(project, Gw4iBundle.message("GitWorktrees.task.load.worktrees.title"), true) {
             private var snapshot: List<RepositoryWorktreesSnapshot> = emptyList()
 
@@ -56,16 +56,16 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
             }
 
             override fun onSuccess() {
-                applySnapshot(snapshot, selectedPath)
+                applySnapshot(snapshot, selectedPaths)
             }
         }.queue()
     }
 
     internal fun reloadSynchronouslyForTests() {
-        applySnapshot(loadSnapshot(), selectedWorktree()?.path)
+        applySnapshot(loadSnapshot(), selectedWorktrees().map { it.worktree.path }.toSet())
     }
 
-    private fun applySnapshot(snapshot: List<RepositoryWorktreesSnapshot>, selectedPath: String?) {
+    private fun applySnapshot(snapshot: List<RepositoryWorktreesSnapshot>, selectedPaths: Set<String>) {
         model.removeAllElements()
         snapshot.forEach { repositorySnapshot ->
             model.addElement(RepositoryItem(repositorySnapshot.repository))
@@ -75,14 +75,17 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
         }
 
         if (model.isEmpty) return
-        val targetIndex = (0 until model.size)
-            .firstOrNull { index ->
-                val item = model[index] as? WorkingTreeItem ?: return@firstOrNull false
-                item.worktree.path == selectedPath
+        val restoredIndices = (0 until model.size)
+            .filter { index ->
+                val item = model[index] as? WorkingTreeItem ?: return@filter false
+                item.worktree.path in selectedPaths
             }
-            ?: firstWorktreeIndex()
 
-        list.selectedIndex = targetIndex ?: 0
+        if (restoredIndices.isNotEmpty()) {
+            list.setSelectedIndices(restoredIndices.toIntArray())
+        } else {
+            list.selectedIndex = firstWorktreeIndex() ?: 0
+        }
     }
 
     private fun loadSnapshot(): List<RepositoryWorktreesSnapshot> {
@@ -95,12 +98,25 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
         list.selectedIndex = index
     }
 
+    internal fun selectRowsForTests(vararg indices: Int) {
+        list.setSelectedIndices(indices)
+    }
+
     fun selectedRepository(): GitRepository? {
-        return list.selectedValue?.repository
+        return singleSelectedItem()?.repository
     }
 
     fun selectedWorktree(): WorktreeInfo? {
-        return (list.selectedValue as? WorkingTreeItem)?.worktree
+        return (singleSelectedItem() as? WorkingTreeItem)?.worktree
+    }
+
+    fun selectedWorktrees(): List<GitWorktreesDataKeys.SelectedGitWorktree> {
+        val selected = mutableListOf<GitWorktreesDataKeys.SelectedGitWorktree>()
+        list.selectedIndices.forEach { index ->
+            val item = model.getElementAt(index) as? WorkingTreeItem ?: return@forEach
+            selected += GitWorktreesDataKeys.SelectedGitWorktree(item.repository, item.worktree)
+        }
+        return selected
     }
 
     fun openSelectedWorktree() {
@@ -113,6 +129,7 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
             GitWorktreesDataKeys.PANEL.`is`(dataId) -> this
             GitWorktreesDataKeys.CURRENT_REPOSITORY.`is`(dataId) -> selectedRepository()
             GitWorktreesDataKeys.SELECTED_WORKTREE.`is`(dataId) -> selectedWorktree()
+            GitWorktreesDataKeys.SELECTED_WORKTREES.`is`(dataId) -> selectedWorktrees()
             else -> null
         }
     }
@@ -131,7 +148,7 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
     }
 
     private fun initList() {
-        list.selectionMode = ListSelectionModel.SINGLE_SELECTION
+        list.selectionMode = ListSelectionModel.MULTIPLE_INTERVAL_SELECTION
         list.emptyText.text = Gw4iBundle.message("toolwindow.GitWorktrees.empty")
         list.cellRenderer = WorktreeRenderer(project)
 
@@ -172,6 +189,12 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
 
     private fun firstWorktreeIndex(): Int? {
         return (0 until model.size).firstOrNull { index -> model[index] is WorkingTreeItem }
+    }
+
+    private fun singleSelectedItem(): WorktreeListItem? {
+        val selectedIndices = list.selectedIndices
+        if (selectedIndices.size != 1) return null
+        return model.getElementAt(selectedIndices.single())
     }
 
     private sealed interface WorktreeListItem {
