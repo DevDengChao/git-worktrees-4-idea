@@ -40,6 +40,7 @@ data class BulkRemoveWorktreesTarget(
 data class BulkRemoveWorktreesResult(
     val removedWorktrees: Int,
     val deletedBranches: Int,
+    val leftoverCleanupPaths: List<String> = emptyList(),
 )
 
 @Service(Service.Level.PROJECT)
@@ -311,6 +312,7 @@ class GitWorktreesOperationsService(private val project: Project) {
         targets: List<BulkRemoveWorktreesTarget>,
         decision: DeleteWorktreeBranchDecision,
         notifyResult: Boolean = true,
+        cleanupLeftoversImmediately: Boolean = true,
     ): BulkRemoveWorktreesResult {
         if (decision == DeleteWorktreeBranchDecision.CANCEL) {
             return BulkRemoveWorktreesResult(removedWorktrees = 0, deletedBranches = 0)
@@ -318,20 +320,30 @@ class GitWorktreesOperationsService(private val project: Project) {
 
         var removedWorktrees = 0
         var deletedBranches = 0
+        val affectedRepositories = linkedSetOf<GitRepository>()
+        val leftoverCleanupPaths = mutableListOf<String>()
         targets.filterNot { it.worktree.isMain }.forEach { target ->
-            if (!removeWorktree(target.repository, target.worktree.path, notifyResult = false)) {
+            val removalResult = removeWorktreeForBulk(target.repository, target.worktree.path)
+            if (!removalResult.removed) {
                 return@forEach
             }
 
             removedWorktrees++
+            affectedRepositories += target.repository
+            removalResult.leftoverCleanupPath?.let { leftoverCleanupPaths += it }
             val branchName = target.worktree.branchName
             if (decision == DeleteWorktreeBranchDecision.DELETE_WORKTREE_AND_BRANCH && branchName != null) {
-                if (deleteBranch(target.repository, branchName, force = true, notifyResult = false)) {
+                if (deleteBranchForBulk(target.repository, branchName, force = true)) {
                     deletedBranches++
+                    affectedRepositories += target.repository
                 }
             }
         }
 
+        affectedRepositories.forEach(::refreshRepository)
+        if (cleanupLeftoversImmediately) {
+            cleanupLeftoverWorktrees(leftoverCleanupPaths)
+        }
         if (notifyResult && removedWorktrees > 0) {
             VcsNotifier.getInstance(project).notifySuccess(
                 "gw4i.worktrees.delete.success",
@@ -339,7 +351,7 @@ class GitWorktreesOperationsService(private val project: Project) {
                 Gw4iBundle.message("GitWorktrees.notification.worktrees.delete.success", removedWorktrees, deletedBranches),
             )
         }
-        return BulkRemoveWorktreesResult(removedWorktrees, deletedBranches)
+        return BulkRemoveWorktreesResult(removedWorktrees, deletedBranches, leftoverCleanupPaths)
     }
 
     fun removeWorktreeAsync(
@@ -385,12 +397,20 @@ class GitWorktreesOperationsService(private val project: Project) {
         afterCompletion: () -> Unit = {},
     ) {
         object : Task.Backgroundable(project, Gw4iBundle.message("GitWorktrees.task.remove.worktree.title"), true) {
+            private var leftoverCleanupPaths: List<String> = emptyList()
+
             override fun run(indicator: ProgressIndicator) {
-                removeWorktreesWithBranchDecision(targets, decision, notifyResult)
+                leftoverCleanupPaths = removeWorktreesWithBranchDecision(
+                    targets,
+                    decision,
+                    notifyResult,
+                    cleanupLeftoversImmediately = false,
+                ).leftoverCleanupPaths
             }
 
             override fun onFinished() {
                 afterCompletion()
+                cleanupLeftoverWorktreesAsync(leftoverCleanupPaths)
             }
         }.queue()
     }
@@ -545,6 +565,60 @@ class GitWorktreesOperationsService(private val project: Project) {
         )
     }
 
+    private fun removeWorktreeForBulk(repository: GitRepository, worktreePath: String): BulkWorktreeRemoval {
+        val result = removeWorktreeRunner(repository, worktreePath)
+        if (result.success()) return BulkWorktreeRemoval(removed = true)
+        if (!isDirectoryNotEmptyFailure(result)) {
+            notifyDeleteWorktreeFailed(result)
+            return BulkWorktreeRemoval(removed = false)
+        }
+
+        val path = Path.of(worktreePath)
+        if (!Files.exists(path)) return BulkWorktreeRemoval(removed = true)
+        if (!Files.isDirectory(path)) {
+            notifyDeleteWorktreeFailed(result)
+            return BulkWorktreeRemoval(removed = false)
+        }
+
+        return BulkWorktreeRemoval(removed = true, leftoverCleanupPath = worktreePath)
+    }
+
+    private fun deleteBranchForBulk(repository: GitRepository, branchName: String, force: Boolean): Boolean {
+        val result = deleteBranchRunner(repository, branchName, force)
+        if (!result.success()) {
+            notifyDeleteBranchFailed(result)
+            return false
+        }
+        return true
+    }
+
+    private fun cleanupLeftoverWorktreesAsync(leftoverCleanupPaths: List<String>) {
+        if (leftoverCleanupPaths.isEmpty()) return
+
+        object : Task.Backgroundable(project, Gw4iBundle.message("GitWorktrees.task.remove.worktree.title"), true) {
+            override fun run(indicator: ProgressIndicator) {
+                cleanupLeftoverWorktrees(leftoverCleanupPaths)
+            }
+        }.queue()
+    }
+
+    private fun cleanupLeftoverWorktrees(leftoverCleanupPaths: List<String>) {
+        leftoverCleanupPaths.forEach { cleanupLeftoverWorktree(it) }
+    }
+
+    private fun cleanupLeftoverWorktree(leftoverCleanupPath: String): Boolean {
+        val path = Path.of(leftoverCleanupPath)
+        if (!Files.exists(path)) return true
+        if (!Files.isDirectory(path)) return false
+
+        return try {
+            NioFiles.deleteRecursively(path)
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     private fun tryCleanupUnregisteredWorktree(
         repository: GitRepository,
         worktreePath: String,
@@ -559,12 +633,7 @@ class GitWorktreesOperationsService(private val project: Project) {
         if (!Files.exists(path)) return true
         if (!Files.isDirectory(path)) return false
 
-        return try {
-            NioFiles.deleteRecursively(path)
-            true
-        } catch (_: Exception) {
-            false
-        }
+        return cleanupLeftoverWorktree(worktreePath)
     }
 
     private fun isDirectoryNotEmptyFailure(result: GitCommandResult): Boolean {
@@ -574,5 +643,10 @@ class GitWorktreesOperationsService(private val project: Project) {
     private data class CheckoutResult(
         val commandResult: GitCommandResult,
         val hasConflictingChanges: Boolean,
+    )
+
+    private data class BulkWorktreeRemoval(
+        val removed: Boolean,
+        val leftoverCleanupPath: String? = null,
     )
 }
