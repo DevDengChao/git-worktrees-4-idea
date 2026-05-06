@@ -14,9 +14,14 @@ import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.ui.SimpleToolWindowPanel
 import com.intellij.openapi.util.io.FileUtil
+import com.intellij.ui.Cell
+import com.intellij.ui.ColoredTableCellRenderer
 import com.intellij.ui.PopupHandler
 import com.intellij.ui.ScrollPaneFactory
+import com.intellij.ui.SimpleTextAttributes
+import com.intellij.ui.TableSpeedSearch
 import com.intellij.ui.components.JBTextField
+import com.intellij.ui.speedSearch.SpeedSearchUtil
 import com.intellij.ui.table.JBTable
 import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.UIUtil
@@ -26,7 +31,6 @@ import dev.dengchao.idea.plugin.git.worktrees.services.GitWorktreesOperationsSer
 import git4idea.repo.GitRepository
 import git4idea.repo.GitRepositoryChangeListener
 import java.awt.BorderLayout
-import java.awt.Component
 import java.awt.Dimension
 import java.awt.GridLayout
 import java.awt.event.MouseAdapter
@@ -43,7 +47,6 @@ import javax.swing.SwingConstants
 import javax.swing.event.DocumentEvent
 import javax.swing.event.DocumentListener
 import javax.swing.table.AbstractTableModel
-import javax.swing.table.DefaultTableCellRenderer
 
 class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(true, true), DataProvider, Disposable {
 
@@ -256,6 +259,7 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
         table.autoResizeMode = JTable.AUTO_RESIZE_SUBSEQUENT_COLUMNS
         table.tableHeader.reorderingAllowed = false
 
+        TableSpeedSearch.installOn(table) { _, cell -> speedSearchText(cell) }
         installToolWindowPopup(table)
 
         table.addMouseListener(object : MouseAdapter() {
@@ -273,6 +277,12 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
             add(scrollPane, BorderLayout.CENTER)
         }
         setContent(contentPanel)
+    }
+
+    private fun speedSearchText(cell: Cell): String? {
+        val row = visibleRows.getOrNull(cell.row) as? WorkingTreeRow ?: return null
+        val column = Column.entries.getOrNull(cell.column) ?: return null
+        return column.value(row.worktree)
     }
 
     private fun createHeaderPanel(): JPanel {
@@ -483,42 +493,41 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
         override fun isCellEditable(rowIndex: Int, columnIndex: Int): Boolean = false
     }
 
-    private inner class WorktreeTableCellRenderer : DefaultTableCellRenderer() {
-        override fun getTableCellRendererComponent(
+    private inner class WorktreeTableCellRenderer : ColoredTableCellRenderer() {
+        override fun customizeCellRenderer(
             table: JTable,
             value: Any?,
             isSelected: Boolean,
             hasFocus: Boolean,
             row: Int,
             column: Int,
-        ): Component {
-            val component = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column) as JLabel
-
-            component.border = JBUI.Borders.empty(0, if (column == 0) 8 else 4, 0, 4)
-            component.horizontalAlignment = SwingConstants.LEFT
-            component.icon = null
-            component.font = table.font
+        ) {
+            border = JBUI.Borders.empty(0, if (column == 0) 8 else 4, 0, 4)
+            setTextAlign(SwingConstants.LEFT)
+            icon = null
+            font = table.font
 
             val item = visibleRows.getOrNull(row)
+            var text = value?.toString().orEmpty()
             when (item) {
                 is RepositoryRow -> {
-                    component.font = table.font.deriveFont(java.awt.Font.BOLD)
-                    component.icon = if (column == 0) AllIcons.Nodes.Folder else null
+                    font = table.font.deriveFont(java.awt.Font.BOLD)
+                    icon = if (column == 0) AllIcons.Nodes.Folder else null
                     if (column != 0) {
-                        component.text = ""
+                        text = ""
                     }
                 }
                 is WorkingTreeRow -> {
                     if (column == 0) {
-                        component.icon = if (item.worktree.isCurrent) AllIcons.Actions.Checked else AllIcons.Empty
+                        icon = if (item.worktree.isCurrent) AllIcons.Actions.Checked else AllIcons.Empty
                         if (item.worktree.isMain) {
-                            component.font = table.font.deriveFont(java.awt.Font.BOLD)
+                            font = table.font.deriveFont(java.awt.Font.BOLD)
                         }
                     }
                 }
                 null -> Unit
             }
-            return component
+            SpeedSearchUtil.appendFragmentsForSpeedSearch(table, text, SimpleTextAttributes.REGULAR_ATTRIBUTES, true, this)
         }
     }
 
