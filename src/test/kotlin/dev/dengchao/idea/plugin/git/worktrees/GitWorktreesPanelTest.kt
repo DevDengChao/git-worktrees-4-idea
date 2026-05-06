@@ -4,6 +4,7 @@ package dev.dengchao.idea.plugin.git.worktrees
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.ui.components.JBTextField
+import com.intellij.ui.speedSearch.SpeedSearchSupply
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.testFramework.LightPlatform4TestCase
@@ -19,6 +20,7 @@ import java.lang.reflect.Proxy
 import javax.swing.JButton
 import javax.swing.JLabel
 import javax.swing.JScrollPane
+import javax.swing.JTable
 import javax.swing.SwingUtilities
 import org.junit.Test
 
@@ -146,6 +148,46 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
             assertEquals("", sortButton.text)
             assertNotNull(sortButton.icon)
         }
+    }
+
+    @Test
+    fun `table installs speed search supply`() {
+        val repository = gitRepository(rootPath = "/project/root", currentBranchName = "master")
+        val panel = panelWithWorktrees(repository, emptyList())
+
+        assertNotNull(panel.speedSearchSupplyForTests())
+    }
+
+    @Test
+    fun `speed search selects worktree rows by all visible columns`() {
+        val repository = gitRepository(rootPath = "/project/root", currentBranchName = "master")
+        val alpha = WorktreeInfo(path = "/project/root/alpha-tree", branchName = "feature/login", isMain = false, isCurrent = false, isLocked = false, isPrunable = false)
+        val beta = WorktreeInfo(path = "/project/root/beta-tree", branchName = "feature/report", isMain = false, isCurrent = false, isLocked = false, isPrunable = false)
+        val release = WorktreeInfo(path = "/release/location-target", branchName = "release/main", isMain = false, isCurrent = false, isLocked = false, isPrunable = false)
+        val panel = panelWithWorktrees(repository, listOf(alpha, beta, release))
+        val speedSearch = panel.speedSearchSupplyForTests()
+
+        speedSearch.findAndSelectElement("beta-tree")
+        assertSame(beta, panel.getData(GitWorktreesDataKeys.SELECTED_WORKTREE.name))
+
+        speedSearch.findAndSelectElement("feature/login")
+        assertSame(alpha, panel.getData(GitWorktreesDataKeys.SELECTED_WORKTREE.name))
+
+        speedSearch.findAndSelectElement("location-target")
+        assertSame(release, panel.getData(GitWorktreesDataKeys.SELECTED_WORKTREE.name))
+    }
+
+    @Test
+    fun `speed search ignores repository grouping rows`() {
+        val repository = gitRepository(rootPath = "/project/matched-repository", currentBranchName = "master")
+        val worktree = WorktreeInfo(path = "/project/plain-worktree", branchName = "feature/plain", isMain = false, isCurrent = false, isLocked = false, isPrunable = false)
+        val panel = panelWithWorktrees(repository, listOf(worktree))
+        val speedSearch = panel.speedSearchSupplyForTests()
+
+        speedSearch.findAndSelectElement("matched-repository")
+
+        assertNull(panel.getData(GitWorktreesDataKeys.CURRENT_REPOSITORY.name))
+        assertNull(panel.getData(GitWorktreesDataKeys.SELECTED_WORKTREE.name))
     }
 
     @Test
@@ -489,6 +531,13 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
             filterFields = GitWorktreesPanel.Column.entries.zip(filterFields).toMap(),
             sortButtons = GitWorktreesPanel.Column.entries.zip(sortButtons).toMap(),
         )
+    }
+
+    private fun GitWorktreesPanel.speedSearchSupplyForTests(): SpeedSearchSupply {
+        val table = descendantsForTests().filterIsInstance<JTable>().single()
+        return requireNotNull(SpeedSearchSupply.getSupply(table, true)) {
+            "Git Worktrees table should install a speed search supply"
+        }
     }
 
     private fun Component.descendantsForTests(): List<Component> {
