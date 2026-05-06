@@ -1,6 +1,7 @@
 package dev.dengchao.idea.plugin.git.worktrees.services
 
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.progress.ProgressIndicator
@@ -128,6 +129,8 @@ class GitWorktreesOperationsService(private val project: Project) {
         ::showBranchUsedByWorktreeDialog
     private var removeWorktreeRunner: (GitRepository, String) -> GitCommandResult = ::runRemoveWorktree
     private var deleteBranchRunner: (GitRepository, String, Boolean) -> GitCommandResult = ::runDeleteBranch
+    private var backgroundTaskRunner: (String, () -> Unit, () -> Unit) -> Unit = ::queueBackgroundTask
+    private var leftoverCleanupRunner: (List<String>) -> Unit = ::runLeftoverCleanupOnPooledThread
 
     fun repositories(): List<GitRepository> {
         return repositoriesProvider()
@@ -170,6 +173,19 @@ class GitWorktreesOperationsService(private val project: Project) {
         Disposer.register(parentDisposable) {
             this.removeWorktreeRunner = ::runRemoveWorktree
             this.deleteBranchRunner = ::runDeleteBranch
+        }
+    }
+
+    internal fun overrideTaskRunnersForTests(
+        backgroundTaskRunner: (String, () -> Unit, () -> Unit) -> Unit = ::queueBackgroundTask,
+        leftoverCleanupRunner: (List<String>) -> Unit = ::runLeftoverCleanupOnPooledThread,
+        parentDisposable: Disposable,
+    ) {
+        this.backgroundTaskRunner = backgroundTaskRunner
+        this.leftoverCleanupRunner = leftoverCleanupRunner
+        Disposer.register(parentDisposable) {
+            this.backgroundTaskRunner = ::queueBackgroundTask
+            this.leftoverCleanupRunner = ::runLeftoverCleanupOnPooledThread
         }
     }
 
@@ -360,15 +376,15 @@ class GitWorktreesOperationsService(private val project: Project) {
         notifyResult: Boolean = true,
         afterCompletion: () -> Unit = {},
     ) {
-        object : Task.Backgroundable(project, Gw4iBundle.message("GitWorktrees.task.remove.worktree.title"), true) {
-            override fun run(indicator: ProgressIndicator) {
+        backgroundTaskRunner(
+            Gw4iBundle.message("GitWorktrees.task.remove.worktree.title"),
+            {
                 removeWorktree(repository, worktreePath, notifyResult)
-            }
-
-            override fun onFinished() {
+            },
+            {
                 afterCompletion()
-            }
-        }.queue()
+            },
+        )
     }
 
     fun removeWorktreeWithBranchDecisionAsync(
@@ -379,15 +395,15 @@ class GitWorktreesOperationsService(private val project: Project) {
         notifyResult: Boolean = true,
         afterCompletion: () -> Unit = {},
     ) {
-        object : Task.Backgroundable(project, Gw4iBundle.message("GitWorktrees.task.remove.worktree.title"), true) {
-            override fun run(indicator: ProgressIndicator) {
+        backgroundTaskRunner(
+            Gw4iBundle.message("GitWorktrees.task.remove.worktree.title"),
+            {
                 removeWorktreeWithBranchDecision(repository, branchName, worktreePath, decision, notifyResult)
-            }
-
-            override fun onFinished() {
+            },
+            {
                 afterCompletion()
-            }
-        }.queue()
+            },
+        )
     }
 
     fun removeWorktreesWithBranchDecisionAsync(
@@ -396,23 +412,23 @@ class GitWorktreesOperationsService(private val project: Project) {
         notifyResult: Boolean = true,
         afterCompletion: () -> Unit = {},
     ) {
-        object : Task.Backgroundable(project, Gw4iBundle.message("GitWorktrees.task.remove.worktree.title"), true) {
-            private var leftoverCleanupPaths: List<String> = emptyList()
+        var leftoverCleanupPaths: List<String> = emptyList()
 
-            override fun run(indicator: ProgressIndicator) {
+        backgroundTaskRunner(
+            Gw4iBundle.message("GitWorktrees.task.remove.worktree.title"),
+            {
                 leftoverCleanupPaths = removeWorktreesWithBranchDecision(
                     targets,
                     decision,
                     notifyResult,
                     cleanupLeftoversImmediately = false,
                 ).leftoverCleanupPaths
-            }
-
-            override fun onFinished() {
+            },
+            {
                 afterCompletion()
                 cleanupLeftoverWorktreesAsync(leftoverCleanupPaths)
-            }
-        }.queue()
+            },
+        )
     }
 
     private fun checkoutBranchWithConflictHandling(
@@ -593,17 +609,36 @@ class GitWorktreesOperationsService(private val project: Project) {
     }
 
     private fun cleanupLeftoverWorktreesAsync(leftoverCleanupPaths: List<String>) {
-        if (leftoverCleanupPaths.isEmpty()) return
+        val uniquePaths = uniqueCleanupPaths(leftoverCleanupPaths)
+        if (uniquePaths.isEmpty()) return
 
-        object : Task.Backgroundable(project, Gw4iBundle.message("GitWorktrees.task.remove.worktree.title"), true) {
+        leftoverCleanupRunner(uniquePaths)
+    }
+
+    private fun queueBackgroundTask(title: String, runTask: () -> Unit, onFinished: () -> Unit) {
+        object : Task.Backgroundable(project, title, true) {
             override fun run(indicator: ProgressIndicator) {
-                cleanupLeftoverWorktrees(leftoverCleanupPaths)
+                runTask()
+            }
+
+            override fun onFinished() {
+                onFinished()
             }
         }.queue()
     }
 
+    private fun runLeftoverCleanupOnPooledThread(leftoverCleanupPaths: List<String>) {
+        ApplicationManager.getApplication().executeOnPooledThread {
+            cleanupLeftoverWorktrees(leftoverCleanupPaths)
+        }
+    }
+
     private fun cleanupLeftoverWorktrees(leftoverCleanupPaths: List<String>) {
         leftoverCleanupPaths.forEach { cleanupLeftoverWorktree(it) }
+    }
+
+    private fun uniqueCleanupPaths(leftoverCleanupPaths: List<String>): List<String> {
+        return leftoverCleanupPaths.distinctBy { normalizePath(it).lowercase() }
     }
 
     private fun cleanupLeftoverWorktree(leftoverCleanupPath: String): Boolean {

@@ -352,6 +352,56 @@ class GitWorktreesOperationsServiceTest : LightPlatform4TestCase() {
     }
 
     @Test
+    fun `test async bulk remove does not queue visible deleting tasks for leftover cleanup`() {
+        val repository = gitRepository(project.basePath!!, currentBranchName = "master")
+        val service = GitWorktreesOperationsService.getInstance(project)
+        val leftoverDirectory = Files.createTempDirectory("gw4i-bulk-async-leftover-worktree")
+        Files.writeString(leftoverDirectory.resolve("leftover.txt"), "leftover")
+        val visibleTaskTitles = mutableListOf<String>()
+        val cleanupRequests = mutableListOf<List<String>>()
+
+        service.overrideProvidersForTests(
+            repositoriesProvider = { listOf(repository) },
+            worktreesProvider = { emptyList() },
+            parentDisposable = testRootDisposable,
+        )
+        service.overrideGitOperationsForTests(
+            removeWorktreeRunner = { _, path ->
+                GitCommandResult(
+                    false,
+                    1,
+                    listOf("error: failed to delete '$path': Directory not empty"),
+                    emptyList(),
+                )
+            },
+            deleteBranchRunner = { _, _, _ -> GitCommandResult(false, 0, emptyList(), emptyList()) },
+            parentDisposable = testRootDisposable,
+        )
+        service.overrideTaskRunnersForTests(
+            backgroundTaskRunner = { title, runTask, onFinished ->
+                visibleTaskTitles += title
+                runTask()
+                onFinished()
+            },
+            leftoverCleanupRunner = { paths -> cleanupRequests += paths },
+            parentDisposable = testRootDisposable,
+        )
+
+        service.removeWorktreesWithBranchDecisionAsync(
+            targets = listOf(
+                BulkRemoveWorktreesTarget(repository, worktree(path = leftoverDirectory.toString(), branchName = "feature")),
+                BulkRemoveWorktreesTarget(repository, worktree(path = leftoverDirectory.toString(), branchName = "bugfix")),
+            ),
+            decision = DeleteWorktreeBranchDecision.DELETE_WORKTREE_AND_BRANCH,
+            notifyResult = false,
+        )
+
+        assertEquals(listOf(Gw4iBundle.message("GitWorktrees.task.remove.worktree.title")), visibleTaskTitles)
+        assertEquals(listOf(listOf(leftoverDirectory.toString())), cleanupRequests)
+        assertTrue(Files.exists(leftoverDirectory))
+    }
+
+    @Test
     fun `test bulk remove refreshes each affected repository once`() {
         var refreshes = 0
         val repository = gitRepository(project.basePath!!, currentBranchName = "master") {
