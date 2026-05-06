@@ -5,6 +5,7 @@ import com.intellij.testFramework.LightPlatform4TestCase
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
 import dev.dengchao.idea.plugin.git.worktrees.model.WorktreeInfo
+import dev.dengchao.idea.plugin.git.worktrees.services.BulkRemoveWorktreesTarget
 import dev.dengchao.idea.plugin.git.worktrees.services.DeleteWorktreeBranchDecision
 import dev.dengchao.idea.plugin.git.worktrees.services.GitWorktreesOperationsService
 import git4idea.commands.GitCommandResult
@@ -182,6 +183,117 @@ class GitWorktreesOperationsServiceTest : LightPlatform4TestCase() {
         assertFalse(Files.exists(leftoverDirectory))
     }
 
+    @Test
+    fun `test bulk remove worktrees only keeps branches`() {
+        val repository = gitRepository(project.basePath!!, currentBranchName = "master")
+        val service = GitWorktreesOperationsService.getInstance(project)
+        val removedPaths = mutableListOf<String>()
+        val deletedBranches = mutableListOf<String>()
+
+        service.overrideProvidersForTests(
+            repositoriesProvider = { listOf(repository) },
+            worktreesProvider = { emptyList() },
+            parentDisposable = testRootDisposable,
+        )
+        service.overrideGitOperationsForTests(
+            removeWorktreeRunner = { _, path ->
+                removedPaths += path
+                GitCommandResult(false, 0, emptyList(), emptyList())
+            },
+            deleteBranchRunner = { _, branch, _ ->
+                deletedBranches += branch
+                GitCommandResult(false, 0, emptyList(), emptyList())
+            },
+            parentDisposable = testRootDisposable,
+        )
+
+        val result = service.removeWorktreesWithBranchDecision(
+            targets = listOf(
+                BulkRemoveWorktreesTarget(repository, worktree(path = "/project/main", branchName = "master", isMain = true)),
+                BulkRemoveWorktreesTarget(repository, worktree(path = "/project/feature", branchName = "feature")),
+                BulkRemoveWorktreesTarget(repository, worktree(path = "/project/bugfix", branchName = "bugfix")),
+            ),
+            decision = DeleteWorktreeBranchDecision.DELETE_WORKTREE_ONLY,
+            notifyResult = false,
+        )
+
+        assertEquals(listOf("/project/feature", "/project/bugfix"), removedPaths)
+        assertTrue(deletedBranches.isEmpty())
+        assertEquals(2, result.removedWorktrees)
+        assertEquals(0, result.deletedBranches)
+    }
+
+    @Test
+    fun `test bulk remove worktrees and branches skips detached branch deletion`() {
+        val repository = gitRepository(project.basePath!!, currentBranchName = "master")
+        val service = GitWorktreesOperationsService.getInstance(project)
+        val removedPaths = mutableListOf<String>()
+        val deletedBranches = mutableListOf<String>()
+
+        service.overrideProvidersForTests(
+            repositoriesProvider = { listOf(repository) },
+            worktreesProvider = { emptyList() },
+            parentDisposable = testRootDisposable,
+        )
+        service.overrideGitOperationsForTests(
+            removeWorktreeRunner = { _, path ->
+                removedPaths += path
+                GitCommandResult(false, 0, emptyList(), emptyList())
+            },
+            deleteBranchRunner = { _, branch, _ ->
+                deletedBranches += branch
+                GitCommandResult(false, 0, emptyList(), emptyList())
+            },
+            parentDisposable = testRootDisposable,
+        )
+
+        val result = service.removeWorktreesWithBranchDecision(
+            targets = listOf(
+                BulkRemoveWorktreesTarget(repository, worktree(path = "/project/feature", branchName = "feature")),
+                BulkRemoveWorktreesTarget(repository, worktree(path = "/project/detached", branchName = null)),
+            ),
+            decision = DeleteWorktreeBranchDecision.DELETE_WORKTREE_AND_BRANCH,
+            notifyResult = false,
+        )
+
+        assertEquals(listOf("/project/feature", "/project/detached"), removedPaths)
+        assertEquals(listOf("feature"), deletedBranches)
+        assertEquals(2, result.removedWorktrees)
+        assertEquals(1, result.deletedBranches)
+    }
+
+    @Test
+    fun `test bulk remove ignores main worktrees`() {
+        val repository = gitRepository(project.basePath!!, currentBranchName = "master")
+        val service = GitWorktreesOperationsService.getInstance(project)
+        val removedPaths = mutableListOf<String>()
+
+        service.overrideProvidersForTests(
+            repositoriesProvider = { listOf(repository) },
+            worktreesProvider = { emptyList() },
+            parentDisposable = testRootDisposable,
+        )
+        service.overrideGitOperationsForTests(
+            removeWorktreeRunner = { _, path ->
+                removedPaths += path
+                GitCommandResult(false, 0, emptyList(), emptyList())
+            },
+            parentDisposable = testRootDisposable,
+        )
+
+        val result = service.removeWorktreesWithBranchDecision(
+            targets = listOf(
+                BulkRemoveWorktreesTarget(repository, worktree(path = "/project/main", branchName = "master", isMain = true)),
+            ),
+            decision = DeleteWorktreeBranchDecision.DELETE_WORKTREE_AND_BRANCH,
+            notifyResult = false,
+        )
+
+        assertTrue(removedPaths.isEmpty())
+        assertEquals(0, result.removedWorktrees)
+        assertEquals(0, result.deletedBranches)
+    }
+
     /**
      * Helper function to parse worktrees from porcelain output.
      * This mirrors the logic in GitWorktreesOperationsService.parseWorktrees().
@@ -231,6 +343,21 @@ class GitWorktreesOperationsServiceTest : LightPlatform4TestCase() {
         }
         flush()
         return entries
+    }
+
+    private fun worktree(
+        path: String,
+        branchName: String?,
+        isMain: Boolean = false,
+    ): WorktreeInfo {
+        return WorktreeInfo(
+            path = path,
+            branchName = branchName,
+            isMain = isMain,
+            isCurrent = isMain,
+            isLocked = false,
+            isPrunable = false,
+        )
     }
 
     private fun gitRepository(

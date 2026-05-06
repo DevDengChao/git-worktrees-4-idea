@@ -143,6 +143,46 @@ class GitWorktreesActionsTest : LightPlatform4TestCase() {
     }
 
     @Test
+    fun `test CheckoutWorktreeInOtherRepositoryAction disabled for multiple selected worktrees`() {
+        val action = CheckoutWorktreeInOtherRepositoryAction()
+        replaceServiceWithRepositories(gitRepository(currentBranchName = "master"))
+
+        val event = multiSelectionActionEvent(
+            selectedWorktree(branchName = "feature"),
+            selectedWorktree(branchName = "bugfix"),
+        )
+        action.update(event)
+
+        assertFalse(event.presentation.isEnabledAndVisible)
+    }
+
+    @Test
+    fun `test OpenSelectedWorktreeAction disabled for multiple selected worktrees`() {
+        val action = OpenSelectedWorktreeAction()
+
+        val event = multiSelectionActionEvent(
+            selectedWorktree(branchName = "feature"),
+            selectedWorktree(branchName = "bugfix"),
+        )
+        action.update(event)
+
+        assertFalse(event.presentation.isEnabledAndVisible)
+    }
+
+    @Test
+    fun `test CheckoutSelectedWorktreeAction disabled for multiple selected worktrees`() {
+        val action = CheckoutSelectedWorktreeAction()
+
+        val event = multiSelectionActionEvent(
+            selectedWorktree(branchName = "feature"),
+            selectedWorktree(branchName = "bugfix"),
+        )
+        action.update(event)
+
+        assertFalse(event.presentation.isEnabledAndVisible)
+    }
+
+    @Test
     fun `test ShowGitWorktreesToolWindowAction visible before repositories initialize`() {
         val action = ShowGitWorktreesToolWindowAction()
         replaceServiceWithRepositories()
@@ -226,6 +266,43 @@ class GitWorktreesActionsTest : LightPlatform4TestCase() {
     }
 
     @Test
+    fun `test RemoveSelectedWorktreeAction enabled for multiple selected worktrees with non-main item`() {
+        val action = RemoveSelectedWorktreeAction()
+
+        val event = multiSelectionActionEvent(
+            selectedWorktree(path = "/project", branchName = "master", isMain = true, isCurrent = true),
+            selectedWorktree(path = "/tmp/feature-tree", branchName = "feature"),
+        )
+        action.update(event)
+
+        assertTrue(event.presentation.isEnabledAndVisible)
+    }
+
+    @Test
+    fun `test RemoveSelectedWorktreeAction enabled when repository row and one worktree are selected`() {
+        val action = RemoveSelectedWorktreeAction()
+
+        val event = multiSelectionActionEvent(
+            selectedWorktree(path = "/tmp/feature-tree", branchName = "feature"),
+        )
+        action.update(event)
+
+        assertTrue(event.presentation.isEnabledAndVisible)
+    }
+
+    @Test
+    fun `test RemoveSelectedWorktreeAction disabled when multiple selection has only main worktrees`() {
+        val action = RemoveSelectedWorktreeAction()
+
+        val event = multiSelectionActionEvent(
+            selectedWorktree(path = "/project", branchName = "master", isMain = true, isCurrent = true),
+        )
+        action.update(event)
+
+        assertFalse(event.presentation.isEnabledAndVisible)
+    }
+
+    @Test
     fun `test WorktreeInfo data class`() {
         val worktree = WorktreeInfo(
             path = "/tmp/feature-tree",
@@ -263,6 +340,35 @@ class GitWorktreesActionsTest : LightPlatform4TestCase() {
             repository?.let { sink[GitWorktreesDataKeys.CURRENT_REPOSITORY] = it }
             sink[GitWorktreesDataKeys.SELECTED_WORKTREE] = worktree
         })
+    }
+
+    private fun multiSelectionActionEvent(
+        vararg selected: GitWorktreesDataKeys.SelectedGitWorktree,
+    ): com.intellij.openapi.actionSystem.AnActionEvent {
+        return TestActionEvent.createTestEvent(CustomizedDataContext.withSnapshot(DataContext.EMPTY_CONTEXT) { sink ->
+            sink[PlatformDataKeys.PROJECT] = project
+            sink[GitWorktreesDataKeys.SELECTED_WORKTREES] = selected.toList()
+        })
+    }
+
+    private fun selectedWorktree(
+        path: String = "/tmp/${System.nanoTime()}",
+        branchName: String?,
+        isMain: Boolean = false,
+        isCurrent: Boolean = false,
+        repository: GitRepository = gitRepository(currentBranchName = "master"),
+    ): GitWorktreesDataKeys.SelectedGitWorktree {
+        return GitWorktreesDataKeys.SelectedGitWorktree(
+            repository = repository,
+            worktree = WorktreeInfo(
+                path = path,
+                branchName = branchName,
+                isMain = isMain,
+                isCurrent = isCurrent,
+                isLocked = false,
+                isPrunable = false,
+            ),
+        )
     }
 
     private fun replaceServiceWithRepositories(vararg repositories: GitRepository) {

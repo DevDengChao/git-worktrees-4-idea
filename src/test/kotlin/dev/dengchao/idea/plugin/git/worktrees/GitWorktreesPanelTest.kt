@@ -79,6 +79,11 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
     }
 
     @Test
+    fun `test DataKey selected worktrees reference`() {
+        assert(GitWorktreesDataKeys.SELECTED_WORKTREES.name == "GW4I_SELECTED_WORKTREES")
+    }
+
+    @Test
     fun `test DataKey current repository reference`() {
         assert(GitWorktreesDataKeys.CURRENT_REPOSITORY.name == "GW4I_CURRENT_REPOSITORY")
     }
@@ -114,6 +119,59 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
     }
 
     @Test
+    fun `multiple selected worktree rows expose selected worktrees only`() {
+        val repository = gitRepository(rootPath = "/project/root", currentBranchName = "master")
+        val featureWorktree = WorktreeInfo(
+            path = "/project/root-feature",
+            branchName = "feature",
+            isMain = false,
+            isCurrent = false,
+            isLocked = false,
+            isPrunable = false,
+        )
+        val bugfixWorktree = WorktreeInfo(
+            path = "/project/root-bugfix",
+            branchName = "bugfix",
+            isMain = false,
+            isCurrent = false,
+            isLocked = false,
+            isPrunable = false,
+        )
+        val panel = panelWithWorktrees(repository, listOf(featureWorktree, bugfixWorktree))
+
+        panel.selectRowsForTests(1, 2)
+
+        @Suppress("UNCHECKED_CAST")
+        val selected = panel.getData(GitWorktreesDataKeys.SELECTED_WORKTREES.name) as List<GitWorktreesDataKeys.SelectedGitWorktree>
+        assertEquals(listOf(featureWorktree, bugfixWorktree), selected.map { it.worktree })
+        assertTrue(selected.all { it.repository === repository })
+        assertNull(panel.getData(GitWorktreesDataKeys.CURRENT_REPOSITORY.name))
+        assertNull(panel.getData(GitWorktreesDataKeys.SELECTED_WORKTREE.name))
+    }
+
+    @Test
+    fun `selected worktrees ignores repository rows`() {
+        val repository = gitRepository(rootPath = "/project/root", currentBranchName = "master")
+        val worktree = WorktreeInfo(
+            path = "/project/root-feature",
+            branchName = "feature",
+            isMain = false,
+            isCurrent = false,
+            isLocked = false,
+            isPrunable = false,
+        )
+        val panel = panelWithWorktrees(repository, listOf(worktree))
+
+        panel.selectRowsForTests(0, 1)
+
+        @Suppress("UNCHECKED_CAST")
+        val selected = panel.getData(GitWorktreesDataKeys.SELECTED_WORKTREES.name) as List<GitWorktreesDataKeys.SelectedGitWorktree>
+        assertEquals(listOf(worktree), selected.map { it.worktree })
+        assertNull(panel.getData(GitWorktreesDataKeys.CURRENT_REPOSITORY.name))
+        assertNull(panel.getData(GitWorktreesDataKeys.SELECTED_WORKTREE.name))
+    }
+
+    @Test
     fun `reload selects first worktree row when previous selection is unavailable`() {
         val repository = gitRepository(rootPath = "/project/root", currentBranchName = "master")
         val worktree = WorktreeInfo(
@@ -127,6 +185,35 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
         val panel = panelWithWorktrees(repository, listOf(worktree))
 
         assertSame(worktree, panel.getData(GitWorktreesDataKeys.SELECTED_WORKTREE.name))
+    }
+
+    @Test
+    fun `reload restores multiple selected worktree rows by path`() {
+        val repository = gitRepository(rootPath = "/project/root", currentBranchName = "master")
+        val featureWorktree = WorktreeInfo(
+            path = "/project/root-feature",
+            branchName = "feature",
+            isMain = false,
+            isCurrent = false,
+            isLocked = false,
+            isPrunable = false,
+        )
+        val bugfixWorktree = WorktreeInfo(
+            path = "/project/root-bugfix",
+            branchName = "bugfix",
+            isMain = false,
+            isCurrent = false,
+            isLocked = false,
+            isPrunable = false,
+        )
+        val panel = panelWithWorktrees(repository, listOf(featureWorktree, bugfixWorktree))
+        panel.selectRowsForTests(1, 2)
+
+        panel.reloadSynchronouslyForTests()
+
+        @Suppress("UNCHECKED_CAST")
+        val selected = panel.getData(GitWorktreesDataKeys.SELECTED_WORKTREES.name) as List<GitWorktreesDataKeys.SelectedGitWorktree>
+        assertEquals(listOf(featureWorktree, bugfixWorktree), selected.map { it.worktree })
     }
 
     @Test
