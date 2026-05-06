@@ -87,6 +87,7 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
     private val sortRules = mutableListOf<SortRule>()
     private val filterFields = mutableMapOf<Column, JBTextField>()
     private val sortButtons = mutableMapOf<Column, JButton>()
+    private val collapsedRepositoryRoots = mutableSetOf<String>()
     private var snapshots: List<RepositoryWorktreesSnapshot> = emptyList()
     private var visibleRows: List<WorktreeTableRow> = emptyList()
 
@@ -125,15 +126,21 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
 
     private fun rebuildVisibleRows(selectedPaths: Set<String> = selectedWorktrees().map { it.worktree.path }.toSet()) {
         visibleRows = snapshots.flatMap { repositorySnapshot ->
+            val repository = repositorySnapshot.repository
             val worktreeRows = repositorySnapshot.worktrees
                 .filter(::matchesFilters)
                 .let(::sortWorktrees)
-                .map { worktree -> WorkingTreeRow(repositorySnapshot.repository, worktree) }
+                .map { worktree -> WorkingTreeRow(repository, worktree) }
 
             if (worktreeRows.isEmpty() && hasActiveFilter()) {
                 emptyList()
             } else {
-                listOf(RepositoryRow(repositorySnapshot.repository)) + worktreeRows
+                val repositoryRow = RepositoryRow(repository)
+                if (isRepositoryCollapsed(repository)) {
+                    listOf(repositoryRow)
+                } else {
+                    listOf(repositoryRow) + worktreeRows
+                }
             }
         }
 
@@ -206,6 +213,21 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
         toggleSort(column)
     }
 
+    fun toggleSelectedRepositoryExpanded() {
+        val repository = (singleSelectedRow() as? RepositoryRow)?.repository ?: return
+        val repositoryRoot = repositoryRootKey(repository)
+        if (!collapsedRepositoryRoots.add(repositoryRoot)) {
+            collapsedRepositoryRoots.remove(repositoryRoot)
+        }
+        rebuildVisibleRows(selectedPaths = emptySet())
+        selectRepository(repositoryRoot)
+    }
+
+    fun isSelectedRepositoryCollapsed(): Boolean {
+        val repository = (singleSelectedRow() as? RepositoryRow)?.repository ?: return false
+        return isRepositoryCollapsed(repository)
+    }
+
     fun selectedRepository(): GitRepository? {
         return singleSelectedRow()?.repository
     }
@@ -225,7 +247,7 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
 
     fun openSelectedWorktree() {
         val worktree = selectedWorktree() ?: return
-        ProjectUtil.openOrImport(Path.of(worktree.path))
+        openWorktreeProject(Path.of(worktree.path))
     }
 
     override fun getData(dataId: String): Any? {
@@ -269,7 +291,11 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
         table.addMouseListener(object : MouseAdapter() {
             override fun mouseClicked(e: MouseEvent) {
                 if (e.clickCount == 2) {
-                    openSelectedWorktree()
+                    when (visibleRows.getOrNull(table.rowAtPoint(e.point))) {
+                        is RepositoryRow -> toggleSelectedRepositoryExpanded()
+                        is WorkingTreeRow -> openSelectedWorktree()
+                        null -> Unit
+                    }
                 }
             }
         })
@@ -368,6 +394,23 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
 
     private fun hasActiveFilter(): Boolean {
         return filters.values.any { it.isNotBlank() }
+    }
+
+    private fun isRepositoryCollapsed(repository: GitRepository): Boolean {
+        return repositoryRootKey(repository) in collapsedRepositoryRoots
+    }
+
+    private fun repositoryRootKey(repository: GitRepository): String {
+        return repository.root.path
+    }
+
+    private fun selectRepository(repositoryRoot: String) {
+        val row = visibleRows.indexOfFirst { item ->
+            item is RepositoryRow && repositoryRootKey(item.repository) == repositoryRoot
+        }
+        if (row >= 0) {
+            table.setRowSelectionInterval(row, row)
+        }
     }
 
     private fun setFilter(column: Column, value: String, updateField: Boolean) {
@@ -527,7 +570,7 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
             when (item) {
                 is RepositoryRow -> {
                     font = table.font.deriveFont(java.awt.Font.BOLD)
-                    icon = if (column == 0) AllIcons.Nodes.Folder else null
+                    icon = if (column == 0) repositoryRowIcon(item.repository) else null
                     if (column != 0) {
                         text = ""
                     }
@@ -548,6 +591,20 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
 
     companion object {
         private const val DETACHED_BRANCH = "detached"
+        private var openWorktreeProject: (Path) -> Unit = { path ->
+            ProjectUtil.openOrImport(path)
+        }
+
+        internal fun overrideOpenWorktreeProjectForTests(
+            opener: (Path) -> Unit,
+            parentDisposable: Disposable,
+        ) {
+            val previousOpener = openWorktreeProject
+            openWorktreeProject = opener
+            com.intellij.openapi.util.Disposer.register(parentDisposable) {
+                openWorktreeProject = previousOpener
+            }
+        }
 
         internal fun installToolWindowPopupForTests(component: JComponent): PopupHandler? {
             return installToolWindowPopup(component)
@@ -561,6 +618,14 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
                 actionGroup,
                 GitWorktreesToolWindowFactory.POPUP_ACTION_GROUP_ID,
             )
+        }
+    }
+
+    private fun repositoryRowIcon(repository: GitRepository): Icon {
+        return if (isRepositoryCollapsed(repository)) {
+            AllIcons.General.ArrowRight
+        } else {
+            AllIcons.General.ArrowDown
         }
     }
 }

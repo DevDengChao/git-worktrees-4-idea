@@ -15,8 +15,10 @@ import dev.dengchao.idea.plugin.git.worktrees.ui.GitWorktreesPanel
 import git4idea.repo.GitRepository
 import java.awt.Component
 import java.awt.Container
+import java.awt.event.MouseEvent
 import java.lang.reflect.InvocationHandler
 import java.lang.reflect.Proxy
+import java.nio.file.Path
 import javax.swing.JButton
 import javax.swing.JLabel
 import javax.swing.JScrollPane
@@ -298,6 +300,88 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
     }
 
     @Test
+    fun `double clicking repository row collapses and expands its worktrees`() {
+        val repository = gitRepository(rootPath = "/project/root", currentBranchName = "master")
+        val alpha = WorktreeInfo(path = "/project/root/alpha-tree", branchName = "feature/alpha", isMain = false, isCurrent = false, isLocked = false, isPrunable = false)
+        val beta = WorktreeInfo(path = "/project/root/beta-tree", branchName = "feature/beta", isMain = false, isCurrent = false, isLocked = false, isPrunable = false)
+        val panel = panelWithWorktrees(repository, listOf(alpha, beta))
+
+        panel.doubleClickRowForTests(0)
+
+        assertEquals(listOf("root"), panel.visibleRowLabelsForTests())
+        assertTrue(panel.isRepositoryRowForTests(0))
+
+        panel.doubleClickRowForTests(0)
+
+        assertEquals(listOf("root", "alpha-tree", "beta-tree"), panel.visibleRowLabelsForTests())
+    }
+
+    @Test
+    fun `collapsing one repository does not affect sibling repository groups`() {
+        val firstRepository = gitRepository(rootPath = "/project/first", currentBranchName = "master")
+        val secondRepository = gitRepository(rootPath = "/project/second", currentBranchName = "master")
+        val firstWorktree = WorktreeInfo(path = "/project/first/alpha-tree", branchName = "feature/alpha", isMain = false, isCurrent = false, isLocked = false, isPrunable = false)
+        val secondWorktree = WorktreeInfo(path = "/project/second/beta-tree", branchName = "feature/beta", isMain = false, isCurrent = false, isLocked = false, isPrunable = false)
+        val panel = panelWithWorktrees(
+            mapOf(
+                firstRepository to listOf(firstWorktree),
+                secondRepository to listOf(secondWorktree),
+            ),
+        )
+
+        panel.doubleClickRowForTests(0)
+
+        assertEquals(listOf("first", "second", "beta-tree"), panel.visibleRowLabelsForTests())
+    }
+
+    @Test
+    fun `repository collapse state survives reload in the same panel`() {
+        val repository = gitRepository(rootPath = "/project/root", currentBranchName = "master")
+        val worktree = WorktreeInfo(path = "/project/root/feature-tree", branchName = "feature", isMain = false, isCurrent = false, isLocked = false, isPrunable = false)
+        val panel = panelWithWorktrees(repository, listOf(worktree))
+
+        panel.doubleClickRowForTests(0)
+        panel.reloadSynchronouslyForTests()
+
+        assertEquals(listOf("root"), panel.visibleRowLabelsForTests())
+    }
+
+    @Test
+    fun `collapsed repository shows only matching repository row while filters are active`() {
+        val repository = gitRepository(rootPath = "/project/root", currentBranchName = "master")
+        val alpha = WorktreeInfo(path = "/project/root/alpha-tree", branchName = "feature/alpha", isMain = false, isCurrent = false, isLocked = false, isPrunable = false)
+        val beta = WorktreeInfo(path = "/project/root/beta-tree", branchName = "feature/beta", isMain = false, isCurrent = false, isLocked = false, isPrunable = false)
+        val panel = panelWithWorktrees(repository, listOf(alpha, beta))
+
+        panel.setFilterForTests(GitWorktreesPanel.Column.BRANCH_NAME, "alpha")
+        panel.doubleClickRowForTests(0)
+
+        assertEquals(listOf("root"), panel.visibleRowLabelsForTests())
+
+        panel.doubleClickRowForTests(0)
+
+        assertEquals(listOf("root", "alpha-tree"), panel.visibleRowLabelsForTests())
+    }
+
+    @Test
+    fun `double clicking worktree row does not collapse its repository`() {
+        val repository = gitRepository(rootPath = "/project/root", currentBranchName = "master")
+        val worktree = WorktreeInfo(path = "/project/root/feature-tree", branchName = "feature", isMain = false, isCurrent = false, isLocked = false, isPrunable = false)
+        val panel = panelWithWorktrees(repository, listOf(worktree))
+        val openedPaths = mutableListOf<String>()
+        GitWorktreesPanel.overrideOpenWorktreeProjectForTests(
+            opener = { path -> openedPaths += path.toString() },
+            parentDisposable = testRootDisposable,
+        )
+
+        panel.doubleClickRowForTests(1)
+
+        assertEquals(listOf("root", "feature-tree"), panel.visibleRowLabelsForTests())
+        assertSame(worktree, panel.getData(GitWorktreesDataKeys.SELECTED_WORKTREE.name))
+        assertEquals(listOf(Path.of(worktree.path).toString()), openedPaths)
+    }
+
+    @Test
     fun `test DataKey panel reference`() {
         // Verify that GitWorktreesDataKeys.PANEL is correctly defined
         assert(GitWorktreesDataKeys.PANEL.name == "GW4I_PANEL")
@@ -541,6 +625,24 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
         return requireNotNull(SpeedSearchSupply.getSupply(table, true)) {
             "Git Worktrees table should install a speed search supply"
         }
+    }
+
+    private fun GitWorktreesPanel.doubleClickRowForTests(row: Int) {
+        val table = descendantsForTests().filterIsInstance<JTable>().single()
+        val rect = table.getCellRect(row, 0, true)
+        table.setRowSelectionInterval(row, row)
+        val event = MouseEvent(
+            table,
+            MouseEvent.MOUSE_CLICKED,
+            System.currentTimeMillis(),
+            0,
+            rect.x + rect.width / 2,
+            rect.y + rect.height / 2,
+            2,
+            false,
+            MouseEvent.BUTTON1,
+        )
+        table.mouseListeners.forEach { listener -> listener.mouseClicked(event) }
     }
 
     private fun Component.descendantsForTests(): List<Component> {
