@@ -32,6 +32,8 @@
         <action id="GitWorktrees.Remove"
                 class="dev.dengchao.idea.plugin.git.worktrees.actions.RemoveSelectedWorktreeAction"
                 icon="AllIcons.General.Delete"/>
+        <action id="GitWorktrees.ToggleRepositoryCollapsed"
+                class="dev.dengchao.idea.plugin.git.worktrees.actions.ToggleSelectedRepositoryAction"/>
 
         <action id="GitWorktrees.CheckoutInOtherRepo"
                 class="dev.dengchao.idea.plugin.git.worktrees.actions.CheckoutWorktreeInOtherRepositoryAction">
@@ -46,6 +48,8 @@
         </group>
 
         <group id="GitWorktrees.ToolWindow.Popup" popup="true">
+            <reference ref="GitWorktrees.ToggleRepositoryCollapsed"/>
+            <separator/>
             <reference ref="GitWorktrees.Checkout"/>
             <reference ref="GitWorktrees.CheckoutInOtherRepo"/>
             <reference ref="GitWorktrees.Open"/>

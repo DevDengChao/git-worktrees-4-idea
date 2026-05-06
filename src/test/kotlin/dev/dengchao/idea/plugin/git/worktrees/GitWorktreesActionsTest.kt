@@ -17,9 +17,11 @@ import dev.dengchao.idea.plugin.git.worktrees.actions.OpenSelectedWorktreeAction
 import dev.dengchao.idea.plugin.git.worktrees.actions.RefreshGitWorktreesAction
 import dev.dengchao.idea.plugin.git.worktrees.actions.RemoveSelectedWorktreeAction
 import dev.dengchao.idea.plugin.git.worktrees.actions.ShowGitWorktreesToolWindowAction
+import dev.dengchao.idea.plugin.git.worktrees.actions.ToggleSelectedRepositoryAction
 import dev.dengchao.idea.plugin.git.worktrees.model.WorktreeInfo
 import dev.dengchao.idea.plugin.git.worktrees.services.GitWorktreesOperationsService
 import dev.dengchao.idea.plugin.git.worktrees.ui.GitWorktreesDataKeys
+import dev.dengchao.idea.plugin.git.worktrees.ui.GitWorktreesPanel
 import git4idea.repo.GitRepository
 import java.lang.reflect.InvocationHandler
 import java.lang.reflect.Proxy
@@ -377,6 +379,63 @@ class GitWorktreesActionsTest : LightPlatform4TestCase() {
     }
 
     @Test
+    fun `test ToggleSelectedRepositoryAction visible for single repository row`() {
+        val action = ToggleSelectedRepositoryAction()
+        val repository = gitRepository(rootPath = "/project/root", currentBranchName = "master")
+        val panel = panelWithWorktrees(repository, emptyList())
+        panel.selectRowForTests(0)
+
+        val event = panelActionEvent(panel)
+        action.update(event)
+
+        assertTrue(event.presentation.isEnabledAndVisible)
+        assertEquals(Gw4iBundle.message("action.GitWorktrees.ToggleRepositoryCollapsed.collapse.text"), event.presentation.text)
+    }
+
+    @Test
+    fun `test ToggleSelectedRepositoryAction toggles text and repository state`() {
+        val action = ToggleSelectedRepositoryAction()
+        val repository = gitRepository(rootPath = "/project/root", currentBranchName = "master")
+        val worktree = WorktreeInfo(path = "/project/root/feature-tree", branchName = "feature", isMain = false, isCurrent = false, isLocked = false, isPrunable = false)
+        val panel = panelWithWorktrees(repository, listOf(worktree))
+        panel.selectRowForTests(0)
+
+        action.actionPerformed(panelActionEvent(panel))
+
+        assertEquals(listOf("root"), panel.visibleRowLabelsForTests())
+
+        val event = panelActionEvent(panel)
+        action.update(event)
+
+        assertTrue(event.presentation.isEnabledAndVisible)
+        assertEquals(Gw4iBundle.message("action.GitWorktrees.ToggleRepositoryCollapsed.expand.text"), event.presentation.text)
+    }
+
+    @Test
+    fun `test ToggleSelectedRepositoryAction hidden for worktree and multiple selections`() {
+        val action = ToggleSelectedRepositoryAction()
+        val repository = gitRepository(rootPath = "/project/root", currentBranchName = "master")
+        val feature = WorktreeInfo(path = "/project/root/feature-tree", branchName = "feature", isMain = false, isCurrent = false, isLocked = false, isPrunable = false)
+        val bugfix = WorktreeInfo(path = "/project/root/bugfix-tree", branchName = "bugfix", isMain = false, isCurrent = false, isLocked = false, isPrunable = false)
+        val panel = panelWithWorktrees(repository, listOf(feature, bugfix))
+
+        panel.selectRowForTests(1)
+        val worktreeEvent = panelActionEvent(panel)
+        action.update(worktreeEvent)
+        assertFalse(worktreeEvent.presentation.isEnabledAndVisible)
+
+        panel.selectRowsForTests(1, 2)
+        val multiWorktreeEvent = panelActionEvent(panel)
+        action.update(multiWorktreeEvent)
+        assertFalse(multiWorktreeEvent.presentation.isEnabledAndVisible)
+
+        panel.selectRowsForTests(0, 1)
+        val repositoryAndWorktreeEvent = panelActionEvent(panel)
+        action.update(repositoryAndWorktreeEvent)
+        assertFalse(repositoryAndWorktreeEvent.presentation.isEnabledAndVisible)
+    }
+
+    @Test
     fun `test WorktreeInfo data class`() {
         val worktree = WorktreeInfo(
             path = "/tmp/feature-tree",
@@ -423,6 +482,30 @@ class GitWorktreesActionsTest : LightPlatform4TestCase() {
             sink[PlatformDataKeys.PROJECT] = project
             sink[GitWorktreesDataKeys.SELECTED_WORKTREES] = selected.toList()
         })
+    }
+
+    private fun panelActionEvent(panel: GitWorktreesPanel): com.intellij.openapi.actionSystem.AnActionEvent {
+        return TestActionEvent.createTestEvent(CustomizedDataContext.withSnapshot(DataContext.EMPTY_CONTEXT) { sink ->
+            sink[PlatformDataKeys.PROJECT] = project
+            sink[GitWorktreesDataKeys.PANEL] = panel
+            panel.selectedRepository()?.let { sink[GitWorktreesDataKeys.CURRENT_REPOSITORY] = it }
+            panel.selectedWorktree()?.let { sink[GitWorktreesDataKeys.SELECTED_WORKTREE] = it }
+            sink[GitWorktreesDataKeys.SELECTED_WORKTREES] = panel.selectedWorktrees()
+        })
+    }
+
+    private fun panelWithWorktrees(
+        repository: GitRepository,
+        worktrees: List<WorktreeInfo>,
+    ): GitWorktreesPanel {
+        GitWorktreesOperationsService.getInstance(project).overrideProvidersForTests(
+            repositoriesProvider = { listOf(repository) },
+            worktreesProvider = { worktrees },
+            parentDisposable = testRootDisposable,
+        )
+        return GitWorktreesPanel(project).apply {
+            reloadSynchronouslyForTests()
+        }
     }
 
     private fun selectedWorktree(
