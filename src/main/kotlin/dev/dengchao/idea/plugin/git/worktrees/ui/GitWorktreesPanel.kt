@@ -295,6 +295,11 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
 
         table.addMouseListener(object : MouseAdapter() {
             override fun mouseClicked(e: MouseEvent) {
+                if (e.clickCount == 1 && isRepositoryChevronClick(e)) {
+                    toggleSelectedRepositoryExpanded()
+                    return
+                }
+
                 if (e.clickCount == 2) {
                     when (visibleRows.getOrNull(table.rowAtPoint(e.point))) {
                         is RepositoryRow -> toggleSelectedRepositoryExpanded()
@@ -308,6 +313,16 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
         val scrollPane = ScrollPaneFactory.createScrollPane(table)
         scrollPane.setColumnHeaderView(table.tableHeader)
         setContent(scrollPane)
+    }
+
+    private fun isRepositoryChevronClick(event: MouseEvent): Boolean {
+        val row = table.rowAtPoint(event.point)
+        if (visibleRows.getOrNull(row) !is RepositoryRow) return false
+        if (table.columnAtPoint(event.point) != 0) return false
+
+        val cellBounds = table.getCellRect(row, 0, true)
+        val chevronWidth = JBUI.scale(24)
+        return event.x in cellBounds.x until cellBounds.x + chevronWidth
     }
 
     private fun speedSearchText(cell: Cell): String? {

@@ -317,6 +317,35 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
     }
 
     @Test
+    fun `single clicking repository chevron collapses and expands its worktrees`() {
+        val repository = gitRepository(rootPath = "/project/root", currentBranchName = "master")
+        val alpha = WorktreeInfo(path = "/project/root/alpha-tree", branchName = "feature/alpha", isMain = false, isCurrent = false, isLocked = false, isPrunable = false)
+        val beta = WorktreeInfo(path = "/project/root/beta-tree", branchName = "feature/beta", isMain = false, isCurrent = false, isLocked = false, isPrunable = false)
+        val panel = panelWithWorktrees(repository, listOf(alpha, beta))
+
+        panel.clickRepositoryChevronForTests(0)
+
+        assertEquals(listOf("root"), panel.visibleRowLabelsForTests())
+
+        panel.clickRepositoryChevronForTests(0)
+
+        assertEquals(listOf("root", "alpha-tree", "beta-tree"), panel.visibleRowLabelsForTests())
+    }
+
+    @Test
+    fun `single clicking repository row outside chevron only selects it`() {
+        val repository = gitRepository(rootPath = "/project/root", currentBranchName = "master")
+        val worktree = WorktreeInfo(path = "/project/root/feature-tree", branchName = "feature", isMain = false, isCurrent = false, isLocked = false, isPrunable = false)
+        val panel = panelWithWorktrees(repository, listOf(worktree))
+
+        panel.clickRepositoryTextForTests(0)
+
+        assertEquals(listOf("root", "feature-tree"), panel.visibleRowLabelsForTests())
+        assertSame(repository, panel.getData(GitWorktreesDataKeys.CURRENT_REPOSITORY.name))
+        assertNull(panel.getData(GitWorktreesDataKeys.SELECTED_WORKTREE.name))
+    }
+
+    @Test
     fun `collapsing one repository does not affect sibling repository groups`() {
         val firstRepository = gitRepository(rootPath = "/project/first", currentBranchName = "master")
         val secondRepository = gitRepository(rootPath = "/project/second", currentBranchName = "master")
@@ -628,6 +657,22 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
     }
 
     private fun GitWorktreesPanel.doubleClickRowForTests(row: Int) {
+        clickRowForTests(row, clickCount = 2, xOffset = { rect -> rect.width / 2 })
+    }
+
+    private fun GitWorktreesPanel.clickRepositoryChevronForTests(row: Int) {
+        clickRowForTests(row, clickCount = 1, xOffset = { 10 })
+    }
+
+    private fun GitWorktreesPanel.clickRepositoryTextForTests(row: Int) {
+        clickRowForTests(row, clickCount = 1, xOffset = { rect -> rect.width / 2 })
+    }
+
+    private fun GitWorktreesPanel.clickRowForTests(
+        row: Int,
+        clickCount: Int,
+        xOffset: (java.awt.Rectangle) -> Int,
+    ) {
         val table = descendantsForTests().filterIsInstance<JTable>().single()
         val rect = table.getCellRect(row, 0, true)
         table.setRowSelectionInterval(row, row)
@@ -636,9 +681,9 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
             MouseEvent.MOUSE_CLICKED,
             System.currentTimeMillis(),
             0,
-            rect.x + rect.width / 2,
+            rect.x + xOffset(rect),
             rect.y + rect.height / 2,
-            2,
+            clickCount,
             false,
             MouseEvent.BUTTON1,
         )
