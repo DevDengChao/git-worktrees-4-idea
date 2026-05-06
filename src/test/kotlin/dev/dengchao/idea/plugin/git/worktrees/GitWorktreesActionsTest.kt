@@ -6,10 +6,10 @@ import com.intellij.openapi.actionSystem.CustomizedDataContext
 import com.intellij.openapi.actionSystem.DataContext
 import com.intellij.openapi.actionSystem.PlatformDataKeys
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.testFramework.LightPlatform4TestCase
 import com.intellij.testFramework.TestActionEvent
-import com.intellij.testFramework.replaceService
 import dev.dengchao.idea.plugin.git.worktrees.actions.CheckoutWorktreeInOtherRepositoryAction
 import dev.dengchao.idea.plugin.git.worktrees.actions.ShowGitWorktreesToolWindowAction
 import dev.dengchao.idea.plugin.git.worktrees.model.WorktreeInfo
@@ -131,7 +131,7 @@ class GitWorktreesActionsTest : LightPlatform4TestCase() {
     }
 
     @Test
-    fun `test ShowGitWorktreesToolWindowAction hidden without repositories`() {
+    fun `test ShowGitWorktreesToolWindowAction visible before repositories initialize`() {
         val action = ShowGitWorktreesToolWindowAction()
         replaceServiceWithRepositories()
 
@@ -140,7 +140,7 @@ class GitWorktreesActionsTest : LightPlatform4TestCase() {
         })
         action.update(event)
 
-        assertFalse(event.presentation.isEnabledAndVisible)
+        assertTrue(event.presentation.isEnabledAndVisible)
     }
 
     @Test
@@ -193,12 +193,9 @@ class GitWorktreesActionsTest : LightPlatform4TestCase() {
     }
 
     private fun replaceServiceWithRepositories(vararg repositories: GitRepository) {
-        project.replaceService(
-            GitWorktreesOperationsService::class.java,
-            object : GitWorktreesOperationsService(project) {
-                override fun repositories(): List<GitRepository> = repositories.toList()
-            },
-            testRootDisposable,
+        GitWorktreesOperationsService.getInstance(project).overrideProvidersForTests(
+            repositoriesProvider = { repositories.toList() },
+            parentDisposable = testRootDisposable,
         )
     }
 
@@ -206,22 +203,7 @@ class GitWorktreesActionsTest : LightPlatform4TestCase() {
         rootPath: String = "/project",
         currentBranchName: String?,
     ): GitRepository {
-        val root = object : VirtualFile() {
-            override fun getName(): String = rootPath.substringAfterLast('/')
-            override fun getFileSystem() = throw UnsupportedOperationException()
-            override fun getPath(): String = rootPath
-            override fun isWritable(): Boolean = true
-            override fun isDirectory(): Boolean = true
-            override fun isValid(): Boolean = true
-            override fun getParent(): VirtualFile? = null
-            override fun getChildren(): Array<VirtualFile> = emptyArray()
-            override fun getOutputStream(requestor: Any?, newModificationStamp: Long, newTimeStamp: Long) = throw UnsupportedOperationException()
-            override fun contentsToByteArray(): ByteArray = ByteArray(0)
-            override fun getTimeStamp(): Long = 0
-            override fun getLength(): Long = 0
-            override fun refresh(asynchronous: Boolean, recursive: Boolean, postRunnable: Runnable?) = Unit
-            override fun getInputStream() = throw UnsupportedOperationException()
-        }
+        val root = TestVirtualFile(rootPath)
         val handler = InvocationHandler { proxy, method, args ->
             when (method.name) {
                 "getProject" -> this.project
@@ -244,5 +226,35 @@ class GitWorktreesActionsTest : LightPlatform4TestCase() {
             arrayOf(GitRepository::class.java),
             handler,
         ) as GitRepository
+    }
+
+    private class TestVirtualFile(
+        private val filePath: String,
+    ) : VirtualFile() {
+        override fun getName(): String = filePath.substringAfterLast('/')
+        override fun getFileSystem() = LocalFileSystem.getInstance()
+        override fun getPath(): String = filePath
+        override fun isWritable(): Boolean = true
+        override fun isDirectory(): Boolean = true
+        override fun isValid(): Boolean = true
+        override fun getParent(): VirtualFile? {
+            val parentPath = filePath.trimEnd('/').substringBeforeLast('/', missingDelimiterValue = "")
+            if (parentPath.isBlank()) return null
+            return TestVirtualFile(parentPath)
+        }
+
+        override fun getChildren(): Array<VirtualFile> = emptyArray()
+        override fun getOutputStream(requestor: Any?, newModificationStamp: Long, newTimeStamp: Long) = throw UnsupportedOperationException()
+        override fun contentsToByteArray(): ByteArray = ByteArray(0)
+        override fun getTimeStamp(): Long = 0
+        override fun getLength(): Long = 0
+        override fun refresh(asynchronous: Boolean, recursive: Boolean, postRunnable: Runnable?) = Unit
+        override fun getInputStream() = throw UnsupportedOperationException()
+
+        override fun equals(other: Any?): Boolean {
+            return other is VirtualFile && other.path == filePath
+        }
+
+        override fun hashCode(): Int = filePath.hashCode()
     }
 }

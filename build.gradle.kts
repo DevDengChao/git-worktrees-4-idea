@@ -36,6 +36,7 @@ repositories {
 dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.opentest4j)
+    testRuntimeOnly(libs.junit.vintage.engine)
 
     // UI Test Robot - https://github.com/JetBrains/intellij-ui-test-robot
     testImplementation("com.intellij.remoterobot:remote-robot:0.11.23")

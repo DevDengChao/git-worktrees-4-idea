@@ -1,6 +1,8 @@
 package dev.dengchao.idea.plugin.git.worktrees.services
 
+import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.Service
+import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.MessageDialogBuilder
 import com.intellij.openapi.vfs.VfsUtilCore
@@ -26,7 +28,7 @@ enum class DeleteWorktreeBranchDecision {
 }
 
 @Service(Service.Level.PROJECT)
-open class GitWorktreesOperationsService(private val project: Project) {
+class GitWorktreesOperationsService(private val project: Project) {
 
     companion object {
         private const val CHECKOUT_FAILED_ID = "gw4i.checkout.failed"
@@ -104,12 +106,36 @@ open class GitWorktreesOperationsService(private val project: Project) {
         }
     }
 
-    open fun repositories(): List<GitRepository> {
+    private var repositoriesProvider: () -> List<GitRepository> = ::defaultRepositories
+    private var worktreesProvider: (GitRepository) -> List<WorktreeInfo> = ::defaultWorktrees
+
+    fun repositories(): List<GitRepository> {
+        return repositoriesProvider()
+    }
+
+    fun worktrees(repository: GitRepository): List<WorktreeInfo> {
+        return worktreesProvider(repository)
+    }
+
+    internal fun overrideProvidersForTests(
+        repositoriesProvider: () -> List<GitRepository>,
+        worktreesProvider: (GitRepository) -> List<WorktreeInfo> = ::defaultWorktrees,
+        parentDisposable: Disposable,
+    ) {
+        this.repositoriesProvider = repositoriesProvider
+        this.worktreesProvider = worktreesProvider
+        Disposer.register(parentDisposable) {
+            this.repositoriesProvider = ::defaultRepositories
+            this.worktreesProvider = ::defaultWorktrees
+        }
+    }
+
+    private fun defaultRepositories(): List<GitRepository> {
         val repositoryManager = GitRepositoryManager.getInstance(project)
         return repositoryManager.sortByDependency(repositoryManager.repositories)
     }
 
-    open fun worktrees(repository: GitRepository): List<WorktreeInfo> {
+    private fun defaultWorktrees(repository: GitRepository): List<WorktreeInfo> {
         val result = runListWorktrees(repository)
         if (!result.success()) return emptyList()
 

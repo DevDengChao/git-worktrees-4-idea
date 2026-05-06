@@ -1,13 +1,9 @@
 // Copyright 2000-2026 JetBrains s.r.o. and contributors.
 package dev.dengchao.idea.plugin.git.worktrees
 
-import com.intellij.openapi.ui.TestDialog
-import com.intellij.openapi.ui.TestDialogManager
-import com.intellij.openapi.ui.Messages
 import com.intellij.testFramework.LightPlatform4TestCase
 import dev.dengchao.idea.plugin.git.worktrees.model.WorktreeInfo
 import dev.dengchao.idea.plugin.git.worktrees.services.DeleteWorktreeBranchDecision
-import dev.dengchao.idea.plugin.git.worktrees.services.GitWorktreesOperationsService
 import org.junit.Test
 
 /**
@@ -76,7 +72,6 @@ class GitWorktreesOperationsServiceTest : LightPlatform4TestCase() {
 
     @Test
     fun `test findLinkedWorktreeForBranch`() {
-        val service = GitWorktreesOperationsService.getInstance(project)
         val worktrees = listOf(
             WorktreeInfo(path = project.basePath!!, branchName = "master", isMain = true, isCurrent = true, isLocked = false, isPrunable = false),
             WorktreeInfo(path = "/tmp/feature-tree", branchName = "feature", isMain = false, isCurrent = false, isLocked = false, isPrunable = false),

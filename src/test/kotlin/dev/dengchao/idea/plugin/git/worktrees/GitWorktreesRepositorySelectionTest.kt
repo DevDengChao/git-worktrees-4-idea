@@ -1,6 +1,7 @@
 package dev.dengchao.idea.plugin.git.worktrees
 
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.testFramework.LightPlatform4TestCase
 import dev.dengchao.idea.plugin.git.worktrees.services.GitWorktreesOperationsService
@@ -56,26 +57,7 @@ class GitWorktreesRepositorySelectionTest : LightPlatform4TestCase() {
     }
 
     private fun repository(name: String, path: String): GitRepository {
-        return gitRepositoryProxy(project, testRoot(name, path), currentBranchName = "master")
-    }
-
-    private fun testRoot(name: String, path: String): VirtualFile {
-        return object : VirtualFile() {
-            override fun getName(): String = name
-            override fun getFileSystem() = throw UnsupportedOperationException()
-            override fun getPath(): String = path
-            override fun isWritable(): Boolean = true
-            override fun isDirectory(): Boolean = true
-            override fun isValid(): Boolean = true
-            override fun getParent(): VirtualFile? = null
-            override fun getChildren(): Array<VirtualFile> = emptyArray()
-            override fun getOutputStream(requestor: Any?, newModificationStamp: Long, newTimeStamp: Long) = throw UnsupportedOperationException()
-            override fun contentsToByteArray(): ByteArray = ByteArray(0)
-            override fun getTimeStamp(): Long = 0
-            override fun getLength(): Long = 0
-            override fun refresh(asynchronous: Boolean, recursive: Boolean, postRunnable: Runnable?) = Unit
-            override fun getInputStream() = throw UnsupportedOperationException()
-        }
+        return gitRepositoryProxy(project, TestVirtualFile(name, path), currentBranchName = "master")
     }
 
     private fun gitRepositoryProxy(
@@ -105,5 +87,36 @@ class GitWorktreesRepositorySelectionTest : LightPlatform4TestCase() {
             arrayOf(GitRepository::class.java),
             handler,
         ) as GitRepository
+    }
+
+    private class TestVirtualFile(
+        private val fileName: String,
+        private val filePath: String,
+    ) : VirtualFile() {
+        override fun getName(): String = fileName
+        override fun getFileSystem() = LocalFileSystem.getInstance()
+        override fun getPath(): String = filePath
+        override fun isWritable(): Boolean = true
+        override fun isDirectory(): Boolean = true
+        override fun isValid(): Boolean = true
+        override fun getParent(): VirtualFile? {
+            val parentPath = filePath.trimEnd('/').substringBeforeLast('/', missingDelimiterValue = "")
+            if (parentPath.isBlank()) return null
+            return TestVirtualFile(parentPath.substringAfterLast('/'), parentPath)
+        }
+
+        override fun getChildren(): Array<VirtualFile> = emptyArray()
+        override fun getOutputStream(requestor: Any?, newModificationStamp: Long, newTimeStamp: Long) = throw UnsupportedOperationException()
+        override fun contentsToByteArray(): ByteArray = ByteArray(0)
+        override fun getTimeStamp(): Long = 0
+        override fun getLength(): Long = 0
+        override fun refresh(asynchronous: Boolean, recursive: Boolean, postRunnable: Runnable?) = Unit
+        override fun getInputStream() = throw UnsupportedOperationException()
+
+        override fun equals(other: Any?): Boolean {
+            return other is VirtualFile && other.path == filePath
+        }
+
+        override fun hashCode(): Int = filePath.hashCode()
     }
 }
