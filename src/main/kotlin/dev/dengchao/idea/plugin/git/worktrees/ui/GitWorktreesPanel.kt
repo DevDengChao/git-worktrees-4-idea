@@ -28,11 +28,10 @@ import git4idea.repo.GitRepositoryChangeListener
 import java.awt.BorderLayout
 import java.awt.Component
 import java.awt.Dimension
-import java.awt.GridLayout
+import java.awt.Rectangle
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import java.nio.file.Path
-import javax.swing.BorderFactory
 import javax.swing.JButton
 import javax.swing.JComponent
 import javax.swing.JLabel
@@ -45,6 +44,8 @@ import javax.swing.event.DocumentEvent
 import javax.swing.event.DocumentListener
 import javax.swing.table.AbstractTableModel
 import javax.swing.table.DefaultTableCellRenderer
+import javax.swing.table.JTableHeader
+import javax.swing.table.TableColumnModel
 
 class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(true, true), DataProvider, Disposable {
 
@@ -255,7 +256,9 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
         table.intercellSpacing = Dimension(0, 0)
         table.rowHeight = JBUI.scale(24)
         table.autoResizeMode = JTable.AUTO_RESIZE_SUBSEQUENT_COLUMNS
-        table.tableHeader.reorderingAllowed = false
+        table.tableHeader = WorktreesTableHeader(table.columnModel).apply {
+            reorderingAllowed = false
+        }
 
         installToolWindowPopup(table)
 
@@ -268,21 +271,8 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
         })
 
         val scrollPane = ScrollPaneFactory.createScrollPane(table)
-        scrollPane.setColumnHeaderView(null)
-        val contentPanel = JPanel(BorderLayout()).apply {
-            add(createHeaderPanel(), BorderLayout.NORTH)
-            add(scrollPane, BorderLayout.CENTER)
-        }
-        setContent(contentPanel)
-    }
-
-    private fun createHeaderPanel(): JPanel {
-        return JPanel(GridLayout(1, Column.entries.size)).apply {
-            border = JBUI.Borders.customLine(UIUtil.getBoundsColor(), 0, 0, 1, 0)
-            Column.entries.forEach { column ->
-                add(createHeaderCell(column))
-            }
-        }
+        scrollPane.setColumnHeaderView(table.tableHeader)
+        setContent(scrollPane)
     }
 
     private fun createHeaderCell(column: Column): JPanel {
@@ -319,10 +309,7 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
         sortButtons[column] = sortButton
 
         return JPanel(BorderLayout()).apply {
-            border = BorderFactory.createCompoundBorder(
-                JBUI.Borders.customLine(UIUtil.getBoundsColor(), 0, 0, 0, 1),
-                JBUI.Borders.empty(2, 4, 2, 4),
-            )
+            border = JBUI.Borders.empty(2, 4, 2, 4)
             add(title, BorderLayout.WEST)
             add(filterField, BorderLayout.CENTER)
             add(sortButton, BorderLayout.EAST)
@@ -459,6 +446,31 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
     private enum class SortDirection {
         ASCENDING,
         DESCENDING,
+    }
+
+    private inner class WorktreesTableHeader(columnModel: TableColumnModel) : JTableHeader(columnModel) {
+        private val headerCells: List<JPanel> = Column.entries.map(::createHeaderCell)
+
+        init {
+            layout = null
+            border = JBUI.Borders.customLine(UIUtil.getBoundsColor(), 0, 0, 1, 0)
+            headerCells.forEach { add(it) }
+        }
+
+        override fun getPreferredSize(): Dimension {
+            val preferredSize = super.getPreferredSize()
+            return Dimension(preferredSize.width, JBUI.scale(36))
+        }
+
+        override fun doLayout() {
+            super.doLayout()
+            var x = 0
+            headerCells.forEachIndexed { index, headerCell ->
+                val width = columnModel.getColumn(index).width
+                headerCell.bounds = Rectangle(x, 0, width, height)
+                x += width
+            }
+        }
     }
 
     private inner class WorktreesTableModel : AbstractTableModel() {

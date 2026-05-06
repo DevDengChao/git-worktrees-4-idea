@@ -19,6 +19,7 @@ import java.lang.reflect.Proxy
 import javax.swing.JButton
 import javax.swing.JLabel
 import javax.swing.JScrollPane
+import javax.swing.JTable
 import javax.swing.SwingUtilities
 import org.junit.Test
 
@@ -106,9 +107,10 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
     }
 
     @Test
-    fun `header controls are ordinary content above the table`() {
+    fun `header controls live in JTable header`() {
         val repository = gitRepository(rootPath = "/project/root", currentBranchName = "master")
         val panel = panelWithWorktrees(repository, emptyList())
+        val table = panel.descendantsForTests().filterIsInstance<JTable>().single()
         val scrollPane = panel.descendantsForTests().filterIsInstance<JScrollPane>().single()
         val columnHeaderView = scrollPane.columnHeader?.view
         val sortButtons = panel.descendantsForTests()
@@ -116,13 +118,14 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
             .filter { it.toolTipText == Gw4iBundle.message("toolwindow.GitWorktrees.sort.button.tooltip") }
         val filterFields = panel.descendantsForTests().filterIsInstance<JBTextField>()
 
+        assertSame(table.tableHeader, columnHeaderView)
         assertEquals(3, sortButtons.size)
         assertEquals(3, filterFields.size)
         sortButtons.forEach { button ->
-            assertFalse(SwingUtilities.isDescendingFrom(button, columnHeaderView))
+            assertTrue(SwingUtilities.isDescendingFrom(button, table.tableHeader))
         }
         filterFields.forEach { field ->
-            assertFalse(SwingUtilities.isDescendingFrom(field, columnHeaderView))
+            assertTrue(SwingUtilities.isDescendingFrom(field, table.tableHeader))
         }
     }
 
@@ -132,6 +135,7 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
         val panel = panelWithWorktrees(repository, emptyList())
         val headerControls = panel.headerControlsForTests()
 
+        assertEquals("Filter worktree", headerControls.filterFields.getValue(GitWorktreesPanel.Column.WORKTREE_ID).emptyText.text)
         GitWorktreesPanel.Column.entries.forEach { column ->
             val title = headerControls.titleLabels.getValue(column)
             val filter = headerControls.filterFields.getValue(column)
