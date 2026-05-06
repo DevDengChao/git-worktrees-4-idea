@@ -2,14 +2,22 @@
 package dev.dengchao.idea.plugin.git.worktrees
 
 import com.intellij.openapi.actionSystem.ActionUpdateThread
-import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.actionSystem.CustomizedDataContext
 import com.intellij.openapi.actionSystem.DataContext
 import com.intellij.openapi.actionSystem.PlatformDataKeys
+import com.intellij.openapi.project.Project
+import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.testFramework.LightPlatform4TestCase
 import com.intellij.testFramework.TestActionEvent
+import com.intellij.testFramework.replaceService
 import dev.dengchao.idea.plugin.git.worktrees.actions.CheckoutWorktreeInOtherRepositoryAction
+import dev.dengchao.idea.plugin.git.worktrees.actions.ShowGitWorktreesToolWindowAction
 import dev.dengchao.idea.plugin.git.worktrees.model.WorktreeInfo
+import dev.dengchao.idea.plugin.git.worktrees.services.GitWorktreesOperationsService
 import dev.dengchao.idea.plugin.git.worktrees.ui.GitWorktreesDataKeys
+import git4idea.repo.GitRepository
+import java.lang.reflect.InvocationHandler
+import java.lang.reflect.Proxy
 import org.junit.Test
 
 /**
@@ -22,6 +30,7 @@ class GitWorktreesActionsTest : LightPlatform4TestCase() {
     fun `test CheckoutWorktreeInOtherRepositoryAction enabled for non-current worktree`() {
         val action = CheckoutWorktreeInOtherRepositoryAction()
         assert(action.actionUpdateThread == ActionUpdateThread.BGT)
+        replaceServiceWithRepositories(gitRepository(currentBranchName = "master"))
 
         val worktree = WorktreeInfo(
             path = "/tmp/feature-tree",
@@ -32,15 +41,16 @@ class GitWorktreesActionsTest : LightPlatform4TestCase() {
             isPrunable = false,
         )
 
-        // Test action update thread and basic enablement logic
-        assert(!worktree.isCurrent) { "Worktree should not be current" }
-        assert(worktree.branchName != null) { "Worktree should have a branch name" }
-        assert(worktree.branchName != "master") { "Branch should be different from current" }
+        val event = actionEvent(worktree)
+        action.update(event)
+
+        assertTrue(event.presentation.isEnabledAndVisible)
     }
 
     @Test
     fun `test CheckoutWorktreeInOtherRepositoryAction disabled for current worktree`() {
         val action = CheckoutWorktreeInOtherRepositoryAction()
+        replaceServiceWithRepositories(gitRepository(currentBranchName = "master"))
 
         val worktree = WorktreeInfo(
             path = project.basePath!!,
@@ -51,13 +61,16 @@ class GitWorktreesActionsTest : LightPlatform4TestCase() {
             isPrunable = false,
         )
 
-        // Current worktree should not be checkout-able
-        assert(worktree.isCurrent) { "This is the current worktree" }
+        val event = actionEvent(worktree)
+        action.update(event)
+
+        assertFalse(event.presentation.isEnabledAndVisible)
     }
 
     @Test
     fun `test CheckoutWorktreeInOtherRepositoryAction disabled for detached HEAD`() {
         val action = CheckoutWorktreeInOtherRepositoryAction()
+        replaceServiceWithRepositories(gitRepository(currentBranchName = "master"))
 
         val worktree = WorktreeInfo(
             path = "/tmp/detached-tree",
@@ -68,13 +81,16 @@ class GitWorktreesActionsTest : LightPlatform4TestCase() {
             isPrunable = false,
         )
 
-        // Detached HEAD cannot be checked out
-        assert(worktree.branchName == null) { "Detached HEAD has no branch name" }
+        val event = actionEvent(worktree)
+        action.update(event)
+
+        assertFalse(event.presentation.isEnabledAndVisible)
     }
 
     @Test
     fun `test CheckoutWorktreeInOtherRepositoryAction disabled when branches match`() {
         val action = CheckoutWorktreeInOtherRepositoryAction()
+        replaceServiceWithRepositories(gitRepository(currentBranchName = "feature"))
 
         val worktree = WorktreeInfo(
             path = "/tmp/feature-tree",
@@ -85,9 +101,59 @@ class GitWorktreesActionsTest : LightPlatform4TestCase() {
             isPrunable = false,
         )
 
-        // If current repository already has the same branch, action should be disabled
-        assert(worktree.branchName == "feature") { "Worktree branch is feature" }
-        // Test would need proper mocking to check against current repo branch
+        val event = actionEvent(worktree)
+        action.update(event)
+
+        assertFalse(event.presentation.isEnabledAndVisible)
+    }
+
+    @Test
+    fun `test CheckoutWorktreeInOtherRepositoryAction disabled for sibling repositories`() {
+        val action = CheckoutWorktreeInOtherRepositoryAction()
+        replaceServiceWithRepositories(
+            gitRepository(rootPath = "/project/one", currentBranchName = "master"),
+            gitRepository(rootPath = "/project/two", currentBranchName = "master"),
+        )
+
+        val worktree = WorktreeInfo(
+            path = "/tmp/feature-tree",
+            branchName = "feature",
+            isMain = false,
+            isCurrent = false,
+            isLocked = false,
+            isPrunable = false,
+        )
+
+        val event = actionEvent(worktree)
+        action.update(event)
+
+        assertFalse(event.presentation.isEnabledAndVisible)
+    }
+
+    @Test
+    fun `test ShowGitWorktreesToolWindowAction hidden without repositories`() {
+        val action = ShowGitWorktreesToolWindowAction()
+        replaceServiceWithRepositories()
+
+        val event = TestActionEvent.createTestEvent(CustomizedDataContext.withSnapshot(DataContext.EMPTY_CONTEXT) { sink ->
+            sink[PlatformDataKeys.PROJECT] = project
+        })
+        action.update(event)
+
+        assertFalse(event.presentation.isEnabledAndVisible)
+    }
+
+    @Test
+    fun `test ShowGitWorktreesToolWindowAction visible with repositories`() {
+        val action = ShowGitWorktreesToolWindowAction()
+        replaceServiceWithRepositories(gitRepository(currentBranchName = "master"))
+
+        val event = TestActionEvent.createTestEvent(CustomizedDataContext.withSnapshot(DataContext.EMPTY_CONTEXT) { sink ->
+            sink[PlatformDataKeys.PROJECT] = project
+        })
+        action.update(event)
+
+        assertTrue(event.presentation.isEnabledAndVisible)
     }
 
     @Test
@@ -117,5 +183,66 @@ class GitWorktreesActionsTest : LightPlatform4TestCase() {
 
         val worktree2 = WorktreeInfo(path = "C:\\Users\\admin\\worktrees\\bugfix-123", branchName = "bugfix-123", isMain = false, isCurrent = false, isLocked = false, isPrunable = false)
         assert(worktree2.name == "bugfix-123")
+    }
+
+    private fun actionEvent(worktree: WorktreeInfo): com.intellij.openapi.actionSystem.AnActionEvent {
+        return TestActionEvent.createTestEvent(CustomizedDataContext.withSnapshot(DataContext.EMPTY_CONTEXT) { sink ->
+            sink[PlatformDataKeys.PROJECT] = project
+            sink[GitWorktreesDataKeys.SELECTED_WORKTREE] = worktree
+        })
+    }
+
+    private fun replaceServiceWithRepositories(vararg repositories: GitRepository) {
+        project.replaceService(
+            GitWorktreesOperationsService::class.java,
+            object : GitWorktreesOperationsService(project) {
+                override fun repositories(): List<GitRepository> = repositories.toList()
+            },
+            testRootDisposable,
+        )
+    }
+
+    private fun gitRepository(
+        rootPath: String = "/project",
+        currentBranchName: String?,
+    ): GitRepository {
+        val root = object : VirtualFile() {
+            override fun getName(): String = rootPath.substringAfterLast('/')
+            override fun getFileSystem() = throw UnsupportedOperationException()
+            override fun getPath(): String = rootPath
+            override fun isWritable(): Boolean = true
+            override fun isDirectory(): Boolean = true
+            override fun isValid(): Boolean = true
+            override fun getParent(): VirtualFile? = null
+            override fun getChildren(): Array<VirtualFile> = emptyArray()
+            override fun getOutputStream(requestor: Any?, newModificationStamp: Long, newTimeStamp: Long) = throw UnsupportedOperationException()
+            override fun contentsToByteArray(): ByteArray = ByteArray(0)
+            override fun getTimeStamp(): Long = 0
+            override fun getLength(): Long = 0
+            override fun refresh(asynchronous: Boolean, recursive: Boolean, postRunnable: Runnable?) = Unit
+            override fun getInputStream() = throw UnsupportedOperationException()
+        }
+        val handler = InvocationHandler { proxy, method, args ->
+            when (method.name) {
+                "getProject" -> this.project
+                "getRoot" -> root
+                "getPresentableUrl" -> rootPath
+                "getCurrentBranchName" -> currentBranchName
+                "isFresh" -> false
+                "isDisposed" -> false
+                "update" -> Unit
+                "dispose" -> Unit
+                "toLogString" -> rootPath
+                "toString" -> "GitRepository($rootPath)"
+                "hashCode" -> System.identityHashCode(proxy)
+                "equals" -> proxy === args?.firstOrNull()
+                else -> null
+            }
+        }
+        return Proxy.newProxyInstance(
+            GitRepository::class.java.classLoader,
+            arrayOf(GitRepository::class.java),
+            handler,
+        ) as GitRepository
     }
 }

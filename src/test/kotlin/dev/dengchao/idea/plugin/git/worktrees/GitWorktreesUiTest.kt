@@ -22,7 +22,7 @@ import java.time.Duration
  * 
  * Inspect UI hierarchy at http://localhost:8082
  */
-@EnabledIfSystemProperty(named = "robot-server.port", matches = ".*")
+@EnabledIfSystemProperty(named = "gw4i.ui.tests", matches = "true")
 class GitWorktreesUiTest {
 
     private lateinit var remoteRobot: RemoteRobot
@@ -136,7 +136,7 @@ class GitWorktreesUiTest {
             )
             dialogs.forEach { dialog ->
                 try {
-                    dialog.callJs("component.setVisible(false)")
+                    dialog.callJs<Boolean>("component.setVisible(false); true;")
                 } catch (_: Exception) {
                     // Ignore
                 }

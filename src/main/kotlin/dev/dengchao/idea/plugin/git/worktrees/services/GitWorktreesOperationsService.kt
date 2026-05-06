@@ -3,6 +3,7 @@ package dev.dengchao.idea.plugin.git.worktrees.services
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.MessageDialogBuilder
+import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.openapi.vcs.VcsNotifier
 import dev.dengchao.idea.plugin.git.worktrees.Gw4iBundle
 import dev.dengchao.idea.plugin.git.worktrees.model.WorktreeInfo
@@ -25,7 +26,7 @@ enum class DeleteWorktreeBranchDecision {
 }
 
 @Service(Service.Level.PROJECT)
-class GitWorktreesOperationsService(private val project: Project) {
+open class GitWorktreesOperationsService(private val project: Project) {
 
     companion object {
         private const val CHECKOUT_FAILED_ID = "gw4i.checkout.failed"
@@ -35,18 +36,88 @@ class GitWorktreesOperationsService(private val project: Project) {
         fun getInstance(project: Project): GitWorktreesOperationsService {
             return project.getService(GitWorktreesOperationsService::class.java)
         }
+
+        fun uniqueTopLevelRepository(repositories: List<GitRepository>): GitRepository? {
+            if (repositories.isEmpty()) return null
+            if (repositories.size == 1) return repositories.first()
+
+            val topLevelRepositories = repositories.filter { candidate ->
+                repositories.none { other ->
+                    other != candidate && VfsUtilCore.isAncestor(other.root, candidate.root, true)
+                }
+            }
+            return topLevelRepositories.singleOrNull()
+        }
+
+        fun parseWorktrees(repository: GitRepository, lines: List<String>): List<WorktreeInfo> {
+            val entries = mutableListOf<WorktreeInfo>()
+
+            var path: String? = null
+            var branchName: String? = null
+            var isLocked = false
+            var isPrunable = false
+
+            fun flush() {
+                val currentPath = path ?: return
+                val isCurrent = normalizePath(currentPath) == normalizePath(repository.root.path)
+                val isMain = entries.isEmpty()
+                entries += WorktreeInfo(
+                    path = currentPath,
+                    branchName = branchName,
+                    isMain = isMain,
+                    isCurrent = isCurrent,
+                    isLocked = isLocked,
+                    isPrunable = isPrunable,
+                )
+
+                path = null
+                branchName = null
+                isLocked = false
+                isPrunable = false
+            }
+
+            lines.forEach { line ->
+                when {
+                    line.isBlank() -> flush()
+                    line.startsWith("worktree ") -> {
+                        flush()
+                        path = line.removePrefix("worktree ").trim()
+                    }
+
+                    line.startsWith("branch ") -> {
+                        val fullRef = line.removePrefix("branch ").trim()
+                        branchName = fullRef.removePrefix("refs/heads/")
+                    }
+
+                    line == "detached" -> branchName = null
+                    line.startsWith("locked") -> isLocked = true
+                    line.startsWith("prunable") -> isPrunable = true
+                }
+            }
+            flush()
+
+            return entries.sortedWith(compareByDescending<WorktreeInfo> { it.isMain }.thenBy { it.name })
+        }
+
+        private fun normalizePath(path: String): String {
+            return path.replace('\\', '/').trimEnd('/')
+        }
     }
 
-    fun repositories(): List<GitRepository> {
+    open fun repositories(): List<GitRepository> {
         val repositoryManager = GitRepositoryManager.getInstance(project)
         return repositoryManager.sortByDependency(repositoryManager.repositories)
     }
 
-    fun worktrees(repository: GitRepository): List<WorktreeInfo> {
+    open fun worktrees(repository: GitRepository): List<WorktreeInfo> {
         val result = runListWorktrees(repository)
         if (!result.success()) return emptyList()
 
         return parseWorktrees(repository, result.output)
+    }
+
+    fun uniqueTopLevelRepository(): GitRepository? {
+        return uniqueTopLevelRepository(repositories())
     }
 
     fun findLinkedWorktreeForBranch(repository: GitRepository, branchName: String): WorktreeInfo? {
@@ -274,60 +345,6 @@ class GitWorktreesOperationsService(private val project: Project) {
         handler.setStderrSuppressed(false)
         handler.addParameters(if (force) "-D" else "-d", branchName)
         return Git.getInstance().runCommand(handler)
-    }
-
-    private fun parseWorktrees(repository: GitRepository, lines: List<String>): List<WorktreeInfo> {
-        val entries = mutableListOf<WorktreeInfo>()
-
-        var path: String? = null
-        var branchName: String? = null
-        var isLocked = false
-        var isPrunable = false
-
-        fun flush() {
-            val currentPath = path ?: return
-            val isCurrent = normalizePath(currentPath) == normalizePath(repository.root.path)
-            val isMain = entries.isEmpty()
-            entries += WorktreeInfo(
-                path = currentPath,
-                branchName = branchName,
-                isMain = isMain,
-                isCurrent = isCurrent,
-                isLocked = isLocked,
-                isPrunable = isPrunable,
-            )
-
-            path = null
-            branchName = null
-            isLocked = false
-            isPrunable = false
-        }
-
-        lines.forEach { line ->
-            when {
-                line.isBlank() -> flush()
-                line.startsWith("worktree ") -> {
-                    flush()
-                    path = line.removePrefix("worktree ").trim()
-                }
-
-                line.startsWith("branch ") -> {
-                    val fullRef = line.removePrefix("branch ").trim()
-                    branchName = fullRef.removePrefix("refs/heads/")
-                }
-
-                line == "detached" -> branchName = null
-                line.startsWith("locked") -> isLocked = true
-                line.startsWith("prunable") -> isPrunable = true
-            }
-        }
-        flush()
-
-        return entries
-    }
-
-    private fun normalizePath(path: String): String {
-        return path.replace('\\', '/').trimEnd('/')
     }
 
     private fun notifyCheckoutFailed(result: GitCommandResult) {

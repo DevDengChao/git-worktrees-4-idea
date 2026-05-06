@@ -28,7 +28,7 @@ class CheckoutWorktreeInOtherRepositoryAction : DumbAwareAction() {
     }
 
     override fun actionPerformed(e: AnActionEvent) {
-        val project = e.getRequiredData(CommonDataKeys.PROJECT)
+        val project = e.project ?: return
         val worktree = e.getData(GitWorktreesDataKeys.SELECTED_WORKTREE) ?: return
         val repository = getCurrentRepository(project) ?: return
 
@@ -48,10 +48,6 @@ class CheckoutWorktreeInOtherRepositoryAction : DumbAwareAction() {
     }
 
     private fun getCurrentRepository(project: Project): GitRepository? {
-        val service = GitWorktreesOperationsService.getInstance(project)
-        val repositories = service.repositories()
-        // For single-repo projects, return the only repo
-        // For multi-repo projects, return the top-level one
-        return repositories.firstOrNull()
+        return GitWorktreesOperationsService.getInstance(project).uniqueTopLevelRepository()
     }
 }

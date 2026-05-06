@@ -23,7 +23,7 @@ import java.time.Duration
  * 1. Start IDE with robot-server: ./gradlew runIdeForUiTests
  * 2. Run this test: ./gradlew test --tests "*GitWorktreesFixtureTest*"
  */
-@EnabledIfSystemProperty(named = "robot-server.port", matches = ".*")
+@EnabledIfSystemProperty(named = "gw4i.ui.tests", matches = "true")
 @TestMethodOrder(MethodOrderer.OrderAnnotation::class)
 class GitWorktreesFixtureTest {
 
@@ -234,8 +234,8 @@ class GitWorktreesFixtureTest {
         // Alternative: use Find Action
         try {
             // Double Shift to open Search Everywhere
-            remoteRobot.callJs<Unit>(
-                "var robot = new java.awt.Robot(); robot.keyPress(16); robot.keyRelease(16); Thread.sleep(100); robot.keyPress(16); robot.keyRelease(16);"
+            remoteRobot.callJs<Boolean>(
+                "var robot = new java.awt.Robot(); robot.keyPress(16); robot.keyRelease(16); Thread.sleep(100); robot.keyPress(16); robot.keyRelease(16); true;"
             )
             
             waitFor(Duration.ofSeconds(3)) {
@@ -282,7 +282,7 @@ class GitWorktreesFixtureTest {
             )
             dialogs.forEach { dialog ->
                 try {
-                    dialog.callJs<Unit>("component.setVisible(false)")
+                    dialog.callJs<Boolean>("component.setVisible(false); true;")
                 } catch (_: Exception) {
                     // Ignore
                 }

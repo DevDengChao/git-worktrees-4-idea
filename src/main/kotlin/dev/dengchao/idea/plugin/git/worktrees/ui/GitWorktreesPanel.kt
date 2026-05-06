@@ -62,8 +62,13 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
                 val item = model[index] as? WorkingTreeItem ?: return@firstOrNull false
                 item.worktree.path == selectedPath
             }
+            ?: firstWorktreeIndex()
 
         list.selectedIndex = targetIndex ?: 0
+    }
+
+    internal fun selectRowForTests(index: Int) {
+        list.selectedIndex = index
     }
 
     fun selectedRepository(): GitRepository? {
@@ -141,6 +146,10 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
         }
     }
 
+    private fun firstWorktreeIndex(): Int? {
+        return (0 until model.size).firstOrNull { index -> model[index] is WorkingTreeItem }
+    }
+
     private sealed interface WorktreeListItem {
         val repository: GitRepository
     }
@@ -171,7 +180,7 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
                     icon = AllIcons.Nodes.Folder
                     append(value.presentationName(project), SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES)
                     append("  ")
-                    append(value.repository.root.path, SimpleTextAttributes.GRAY_ATTRIBUTES)
+                    append(FileUtil.getLocationRelativeToUserHome(value.repository.root.path), SimpleTextAttributes.GRAY_ATTRIBUTES)
                     border = JBUI.Borders.empty(2, 4, 2, 4)
                 }
 

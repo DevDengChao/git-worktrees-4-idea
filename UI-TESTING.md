@@ -17,7 +17,7 @@
 
 ```powershell
 # 在终端 2 中运行
-.\gradlew test --tests "*GitWorktreesUiTest*"
+.\gradlew test -Dgw4i.ui.tests=true --tests "*GitWorktreesUiTest*"
 ```
 
 ### 一键运行（后台启动 IDE）
@@ -26,7 +26,7 @@
 # PowerShell
 Start-Process -NoNewWindow -FilePath ".\gradlew" -ArgumentList "runIdeForUiTests"
 Start-Sleep -Seconds 60  # 等待 IDE 启动
-.\gradlew test --tests "*GitWorktreesUiTest*"
+.\gradlew test -Dgw4i.ui.tests=true --tests "*GitWorktreesUiTest*"
 ```
 
 ## 调试 UI 组件
@@ -123,7 +123,7 @@ jobs:
         run: sleep 60
       
       - name: Run UI Tests
-        run: ./gradlew test --tests "*UiTest*"
+        run: ./gradlew test -Dgw4i.ui.tests=true --tests "*UiTest*"
 ```
 
 ## 常见问题
@@ -143,5 +143,5 @@ netstat -ano | findstr 8082
 
 ### 测试被跳过
 
-UI 测试使用了 `@EnabledIfSystemProperty(named = "robot-server.port", matches = ".*")`，
-只有在运行 `runIdeForUiTests` 时才会执行。正常运行 `./gradlew test` 时会自动跳过 UI 测试。
+UI 测试使用了 `@EnabledIfSystemProperty(named = "gw4i.ui.tests", matches = "true")`，
+只有显式传入 `-Dgw4i.ui.tests=true` 时才会执行。正常运行 `./gradlew test` 时会自动跳过 UI 测试；需要跑 UI 测试时，先运行 `runIdeForUiTests`，再运行 `./gradlew test -Dgw4i.ui.tests=true`。

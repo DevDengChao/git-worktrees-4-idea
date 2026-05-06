@@ -23,7 +23,7 @@ import java.time.Duration
  * 
  * Inspect UI hierarchy at http://localhost:8082
  */
-@EnabledIfSystemProperty(named = "robot-server.port", matches = ".*")
+@EnabledIfSystemProperty(named = "gw4i.ui.tests", matches = "true")
 class GitWorktreesHaiLiaoTest {
 
     private lateinit var remoteRobot: RemoteRobot
@@ -102,6 +102,7 @@ class GitWorktreesHaiLiaoTest {
                             false
                         }
                     }
+                    true
                 } catch (_: Exception) {
                     false
                 }
@@ -109,8 +110,8 @@ class GitWorktreesHaiLiaoTest {
         } catch (_: Exception) {
             // Menu approach failed, try keyboard shortcut
             // Ctrl+Shift+A for Find Action
-            remoteRobot.callJs<Unit>(
-                "var robot = new java.awt.Robot(); robot.keyPress(17); robot.keyPress(16); robot.keyPress(65); Thread.sleep(100); robot.keyRelease(65); robot.keyRelease(16); robot.keyRelease(17);"
+            remoteRobot.callJs<Boolean>(
+                "var robot = new java.awt.Robot(); robot.keyPress(17); robot.keyPress(16); robot.keyPress(65); Thread.sleep(100); robot.keyRelease(65); robot.keyRelease(16); robot.keyRelease(17); true;"
             )
             
             waitFor(Duration.ofSeconds(3)) {
@@ -125,8 +126,8 @@ class GitWorktreesHaiLiaoTest {
             }
             
             // Type "Git Worktrees"
-            remoteRobot.callJs<Unit>(
-                "var robot = new java.awt.Robot(); 'Git Worktrees'.split('').forEach(function(c) { var code = c.toUpperCase().charCodeAt(0); robot.keyPress(code); robot.keyRelease(code); });"
+            remoteRobot.callJs<Boolean>(
+                "var robot = new java.awt.Robot(); 'Git Worktrees'.split('').forEach(function(c) { var code = c.toUpperCase().charCodeAt(0); robot.keyPress(code); robot.keyRelease(code); }); true;"
             )
         }
     }
@@ -187,7 +188,7 @@ class GitWorktreesHaiLiaoTest {
             )
             dialogs.forEach { dialog ->
                 try {
-                    dialog.callJs<Unit>("component.setVisible(false)")
+                    dialog.callJs<Boolean>("component.setVisible(false); true;")
                 } catch (_: Exception) {
                     // Ignore
                 }

@@ -148,7 +148,8 @@ tasks {
 
     withType<Test> {
         useJUnitPlatform()
-        systemProperty("robot-server.port", "8082")
+        systemProperty("gw4i.ui.tests", providers.systemProperty("gw4i.ui.tests").orElse("false").get())
+        systemProperty("robot-server.port", providers.systemProperty("robot-server.port").orElse("8082").get())
         filter {
             setFailOnNoMatchingTests(false)
         }
