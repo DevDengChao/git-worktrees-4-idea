@@ -5,7 +5,6 @@ import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.wm.ToolWindowManager
 import dev.dengchao.idea.plugin.git.worktrees.Gw4iBundle
-import dev.dengchao.idea.plugin.git.worktrees.services.GitWorktreesOperationsService
 import dev.dengchao.idea.plugin.git.worktrees.ui.GitWorktreesToolWindowFactory
 
 class ShowGitWorktreesToolWindowAction : DumbAwareAction(
@@ -16,9 +15,7 @@ class ShowGitWorktreesToolWindowAction : DumbAwareAction(
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.BGT
 
     override fun update(e: AnActionEvent) {
-        val project = e.project
-        e.presentation.isEnabledAndVisible =
-            project != null && GitWorktreesOperationsService.getInstance(project).repositories().isNotEmpty()
+        e.presentation.isEnabledAndVisible = e.project != null
     }
 
     override fun actionPerformed(e: AnActionEvent) {

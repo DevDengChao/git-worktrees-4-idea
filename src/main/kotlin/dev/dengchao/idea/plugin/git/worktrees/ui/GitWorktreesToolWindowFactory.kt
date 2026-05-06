@@ -6,7 +6,6 @@ import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
 import com.intellij.ui.content.ContentFactory
 import dev.dengchao.idea.plugin.git.worktrees.Gw4iBundle
-import git4idea.repo.GitRepositoryManager
 
 class GitWorktreesToolWindowFactory : ToolWindowFactory, DumbAware {
 
@@ -26,6 +25,6 @@ class GitWorktreesToolWindowFactory : ToolWindowFactory, DumbAware {
     }
 
     override fun shouldBeAvailable(project: Project): Boolean {
-        return GitRepositoryManager.getInstance(project).repositories.isNotEmpty()
+        return true
     }
 }

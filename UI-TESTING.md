@@ -41,6 +41,8 @@ Start-Sleep -Seconds 60  # 等待 IDE 启动
 
 ## 测试文件说明
 
+默认 `.\gradlew test` 同时运行 JUnit 5 测试和 JUnit 4 / IntelliJ `LightPlatform4TestCase` 测试；构建中必须保留 `junit-vintage-engine`，否则 JUnit 4 风格测试会被 JUnit Platform 静默跳过。
+
 | 文件 | 类型 | 运行条件 |
 |------|------|----------|
 | `GitWorktreesUiTest.kt` | UI 集成测试 | 需要运行 `runIdeForUiTests` |

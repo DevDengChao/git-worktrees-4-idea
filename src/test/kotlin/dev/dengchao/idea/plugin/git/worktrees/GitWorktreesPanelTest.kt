@@ -2,9 +2,9 @@
 package dev.dengchao.idea.plugin.git.worktrees
 
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.testFramework.LightPlatform4TestCase
-import com.intellij.testFramework.replaceService
 import dev.dengchao.idea.plugin.git.worktrees.model.WorktreeInfo
 import dev.dengchao.idea.plugin.git.worktrees.services.GitWorktreesOperationsService
 import dev.dengchao.idea.plugin.git.worktrees.ui.GitWorktreesDataKeys
@@ -132,34 +132,16 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
         repository: GitRepository,
         worktrees: List<WorktreeInfo>,
     ): GitWorktreesPanel {
-        project.replaceService(
-            GitWorktreesOperationsService::class.java,
-            object : GitWorktreesOperationsService(project) {
-                override fun repositories(): List<GitRepository> = listOf(repository)
-                override fun worktrees(repository: GitRepository): List<WorktreeInfo> = worktrees
-            },
-            testRootDisposable,
+        GitWorktreesOperationsService.getInstance(project).overrideProvidersForTests(
+            repositoriesProvider = { listOf(repository) },
+            worktreesProvider = { worktrees },
+            parentDisposable = testRootDisposable,
         )
         return GitWorktreesPanel(project)
     }
 
     private fun gitRepository(rootPath: String, currentBranchName: String?): GitRepository {
-        val root = object : VirtualFile() {
-            override fun getName(): String = rootPath.substringAfterLast('/')
-            override fun getFileSystem() = throw UnsupportedOperationException()
-            override fun getPath(): String = rootPath
-            override fun isWritable(): Boolean = true
-            override fun isDirectory(): Boolean = true
-            override fun isValid(): Boolean = true
-            override fun getParent(): VirtualFile? = null
-            override fun getChildren(): Array<VirtualFile> = emptyArray()
-            override fun getOutputStream(requestor: Any?, newModificationStamp: Long, newTimeStamp: Long) = throw UnsupportedOperationException()
-            override fun contentsToByteArray(): ByteArray = ByteArray(0)
-            override fun getTimeStamp(): Long = 0
-            override fun getLength(): Long = 0
-            override fun refresh(asynchronous: Boolean, recursive: Boolean, postRunnable: Runnable?) = Unit
-            override fun getInputStream() = throw UnsupportedOperationException()
-        }
+        val root = TestVirtualFile(rootPath)
         val handler = InvocationHandler { proxy, method, args ->
             when (method.name) {
                 "getProject" -> project
@@ -182,5 +164,29 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
             arrayOf(GitRepository::class.java),
             handler,
         ) as GitRepository
+    }
+
+    private class TestVirtualFile(
+        private val filePath: String,
+    ) : VirtualFile() {
+        override fun getName(): String = filePath.substringAfterLast('/')
+        override fun getFileSystem() = LocalFileSystem.getInstance()
+        override fun getPath(): String = filePath
+        override fun isWritable(): Boolean = true
+        override fun isDirectory(): Boolean = true
+        override fun isValid(): Boolean = true
+        override fun getParent(): VirtualFile? {
+            val parentPath = filePath.trimEnd('/').substringBeforeLast('/', missingDelimiterValue = "")
+            if (parentPath.isBlank()) return null
+            return TestVirtualFile(parentPath)
+        }
+
+        override fun getChildren(): Array<VirtualFile> = emptyArray()
+        override fun getOutputStream(requestor: Any?, newModificationStamp: Long, newTimeStamp: Long) = throw UnsupportedOperationException()
+        override fun contentsToByteArray(): ByteArray = ByteArray(0)
+        override fun getTimeStamp(): Long = 0
+        override fun getLength(): Long = 0
+        override fun refresh(asynchronous: Boolean, recursive: Boolean, postRunnable: Runnable?) = Unit
+        override fun getInputStream() = throw UnsupportedOperationException()
     }
 }
