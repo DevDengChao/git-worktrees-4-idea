@@ -209,6 +209,22 @@ class GitWorktreesActionsTest : LightPlatform4TestCase() {
     }
 
     @Test
+    fun `test ShowGitWorktreesToolWindowAction opens Worktrees tab in Git tool window`() {
+        val action = ShowGitWorktreesToolWindowAction()
+        var openedProject: Project? = null
+        ShowGitWorktreesToolWindowAction.overrideOpenWorktreesTabForTests(
+            opener = { openedProject = it },
+            parentDisposable = testRootDisposable,
+        )
+
+        action.actionPerformed(TestActionEvent.createTestEvent(CustomizedDataContext.withSnapshot(DataContext.EMPTY_CONTEXT) { sink ->
+            sink[PlatformDataKeys.PROJECT] = project
+        }))
+
+        assertSame(project, openedProject)
+    }
+
+    @Test
     fun `test RemoveSelectedWorktreeAction enabled for linked worktree with repository context`() {
         val action = RemoveSelectedWorktreeAction()
         assert(action.actionUpdateThread == ActionUpdateThread.BGT)

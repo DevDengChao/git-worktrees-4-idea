@@ -20,6 +20,7 @@
         <action id="GitWorktrees.ShowToolWindow"
                 class="dev.dengchao.idea.plugin.git.worktrees.actions.ShowGitWorktreesToolWindowAction">
             <add-to-group group-id="Git.MainMenu" anchor="last"/>
+            <add-to-group group-id="Vcs.Log.ToolWindow.TabActions.DropDown" anchor="last"/>
         </action>
 
         <action id="GitWorktrees.Refresh"

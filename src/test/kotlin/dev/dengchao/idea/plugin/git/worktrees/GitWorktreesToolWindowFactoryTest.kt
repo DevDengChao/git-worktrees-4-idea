@@ -27,6 +27,17 @@ class GitWorktreesToolWindowFactoryTest : LightPlatform4TestCase() {
     }
 
     @Test
+    fun `test show action is registered in VCS log tab dropdown`() {
+        val actionManager = ActionManager.getInstance()
+        val dropdown = actionManager.getAction("Vcs.Log.ToolWindow.TabActions.DropDown") as? ActionGroup
+        val showAction = actionManager.getAction("GitWorktrees.ShowToolWindow")
+
+        assertNotNull(dropdown)
+        assertNotNull(showAction)
+        assertTrue(dropdown!!.getChildren(null).contains(showAction))
+    }
+
+    @Test
     fun `test tool window popup is installed with resolved action group`() {
         val action = ActionManager.getInstance().getAction(GitWorktreesToolWindowFactory.POPUP_ACTION_GROUP_ID) as ActionGroup
         val table = JTable()
