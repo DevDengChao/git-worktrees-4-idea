@@ -23,8 +23,12 @@ class CheckoutWorktreeInOtherRepositoryAction : DumbAwareAction() {
     override fun update(e: AnActionEvent) {
         val worktree = e.getData(GitWorktreesDataKeys.SELECTED_WORKTREE)
         val repository = e.getData(CommonDataKeys.PROJECT)?.let { getCurrentRepository(it) }
+        val disabledReason = checkoutDisabledReason(worktree, repository)
 
-        e.presentation.isEnabledAndVisible = isEnabledFor(worktree, repository)
+        e.presentation.isVisible = worktree != null
+        e.presentation.isEnabled = disabledReason == null
+        e.presentation.description =
+            disabledReason ?: Gw4iBundle.message("action.GitWorktrees.CheckoutInOtherRepo.description")
     }
 
     override fun actionPerformed(e: AnActionEvent) {
@@ -40,11 +44,23 @@ class CheckoutWorktreeInOtherRepositoryAction : DumbAwareAction() {
     }
 
     private fun isEnabledFor(worktree: WorktreeInfo?, repository: GitRepository?): Boolean {
-        if (worktree == null || repository == null) return false
-        if (worktree.isCurrent) return false  // Already checked out here
+        return checkoutDisabledReason(worktree, repository) == null
+    }
 
-        val branchName = worktree.branchName ?: return false  // Detached HEAD not supported
-        return repository.currentBranchName != branchName
+    private fun checkoutDisabledReason(worktree: WorktreeInfo?, repository: GitRepository?): String? {
+        if (worktree == null) return Gw4iBundle.message("action.GitWorktrees.CheckoutInOtherRepo.disabled.no.selection")
+        if (repository == null) {
+            return Gw4iBundle.message("action.GitWorktrees.CheckoutInOtherRepo.disabled.multiple.repositories")
+        }
+        if (worktree.isCurrent) return Gw4iBundle.message("action.GitWorktrees.CheckoutInOtherRepo.disabled.current.worktree")
+
+        val branchName = worktree.branchName
+            ?: return Gw4iBundle.message("action.GitWorktrees.CheckoutInOtherRepo.disabled.detached")
+        if (repository.currentBranchName == branchName) {
+            return Gw4iBundle.message("action.GitWorktrees.CheckoutInOtherRepo.disabled.branch.current", branchName)
+        }
+
+        return null
     }
 
     private fun getCurrentRepository(project: Project): GitRepository? {

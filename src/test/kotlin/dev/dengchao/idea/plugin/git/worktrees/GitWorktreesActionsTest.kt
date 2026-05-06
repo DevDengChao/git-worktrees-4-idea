@@ -76,7 +76,12 @@ class GitWorktreesActionsTest : LightPlatform4TestCase() {
         val event = actionEvent(worktree)
         action.update(event)
 
-        assertFalse(event.presentation.isEnabledAndVisible)
+        assertTrue(event.presentation.isVisible)
+        assertFalse(event.presentation.isEnabled)
+        assertEquals(
+            Gw4iBundle.message("action.GitWorktrees.CheckoutInOtherRepo.disabled.current.worktree"),
+            event.presentation.description,
+        )
     }
 
     @Test
@@ -96,7 +101,12 @@ class GitWorktreesActionsTest : LightPlatform4TestCase() {
         val event = actionEvent(worktree)
         action.update(event)
 
-        assertFalse(event.presentation.isEnabledAndVisible)
+        assertTrue(event.presentation.isVisible)
+        assertFalse(event.presentation.isEnabled)
+        assertEquals(
+            Gw4iBundle.message("action.GitWorktrees.CheckoutInOtherRepo.disabled.detached"),
+            event.presentation.description,
+        )
     }
 
     @Test
@@ -116,7 +126,12 @@ class GitWorktreesActionsTest : LightPlatform4TestCase() {
         val event = actionEvent(worktree)
         action.update(event)
 
-        assertFalse(event.presentation.isEnabledAndVisible)
+        assertTrue(event.presentation.isVisible)
+        assertFalse(event.presentation.isEnabled)
+        assertEquals(
+            Gw4iBundle.message("action.GitWorktrees.CheckoutInOtherRepo.disabled.branch.current", "feature"),
+            event.presentation.description,
+        )
     }
 
     @Test
@@ -139,7 +154,12 @@ class GitWorktreesActionsTest : LightPlatform4TestCase() {
         val event = actionEvent(worktree)
         action.update(event)
 
-        assertFalse(event.presentation.isEnabledAndVisible)
+        assertTrue(event.presentation.isVisible)
+        assertFalse(event.presentation.isEnabled)
+        assertEquals(
+            Gw4iBundle.message("action.GitWorktrees.CheckoutInOtherRepo.disabled.multiple.repositories"),
+            event.presentation.description,
+        )
     }
 
     @Test
@@ -180,6 +200,54 @@ class GitWorktreesActionsTest : LightPlatform4TestCase() {
         action.update(event)
 
         assertFalse(event.presentation.isEnabledAndVisible)
+    }
+
+    @Test
+    fun `test CheckoutSelectedWorktreeAction visible with disabled hint when branch already current`() {
+        val action = CheckoutSelectedWorktreeAction()
+        val repository = gitRepository(currentBranchName = "feature")
+        val worktree = WorktreeInfo(
+            path = "/tmp/feature-tree",
+            branchName = "feature",
+            isMain = false,
+            isCurrent = false,
+            isLocked = false,
+            isPrunable = false,
+        )
+
+        val event = actionEvent(worktree, repository)
+        action.update(event)
+
+        assertTrue(event.presentation.isVisible)
+        assertFalse(event.presentation.isEnabled)
+        assertEquals(
+            Gw4iBundle.message("action.GitWorktrees.Checkout.disabled.branch.current", "feature"),
+            event.presentation.description,
+        )
+    }
+
+    @Test
+    fun `test CheckoutSelectedWorktreeAction visible with disabled hint for detached HEAD`() {
+        val action = CheckoutSelectedWorktreeAction()
+        val repository = gitRepository(currentBranchName = "master")
+        val worktree = WorktreeInfo(
+            path = "/tmp/detached-tree",
+            branchName = null,
+            isMain = false,
+            isCurrent = false,
+            isLocked = false,
+            isPrunable = false,
+        )
+
+        val event = actionEvent(worktree, repository)
+        action.update(event)
+
+        assertTrue(event.presentation.isVisible)
+        assertFalse(event.presentation.isEnabled)
+        assertEquals(
+            Gw4iBundle.message("action.GitWorktrees.Checkout.disabled.detached"),
+            event.presentation.description,
+        )
     }
 
     @Test

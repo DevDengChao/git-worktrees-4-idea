@@ -5,8 +5,10 @@ import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.project.DumbAwareAction
 import dev.dengchao.idea.plugin.git.worktrees.Gw4iBundle
+import dev.dengchao.idea.plugin.git.worktrees.model.WorktreeInfo
 import dev.dengchao.idea.plugin.git.worktrees.services.GitWorktreesOperationsService
 import dev.dengchao.idea.plugin.git.worktrees.ui.GitWorktreesDataKeys
+import git4idea.repo.GitRepository
 
 class CheckoutSelectedWorktreeAction : DumbAwareAction(
     Gw4iBundle.message("action.GitWorktrees.Checkout.text"),
@@ -18,10 +20,12 @@ class CheckoutSelectedWorktreeAction : DumbAwareAction(
     override fun update(e: AnActionEvent) {
         val repository = e.getData(GitWorktreesDataKeys.CURRENT_REPOSITORY)
         val worktree = e.getData(GitWorktreesDataKeys.SELECTED_WORKTREE)
-        val branchName = worktree?.branchName
+        val disabledReason = checkoutDisabledReason(repository, worktree)
 
-        e.presentation.isEnabledAndVisible =
-            repository != null && worktree != null && branchName != null && !worktree.isCurrent && repository.currentBranchName != branchName
+        e.presentation.isVisible = repository != null && worktree != null
+        e.presentation.isEnabled = disabledReason == null
+        e.presentation.description =
+            disabledReason ?: Gw4iBundle.message("action.GitWorktrees.Checkout.description")
     }
 
     override fun actionPerformed(e: AnActionEvent) {
@@ -33,5 +37,17 @@ class CheckoutSelectedWorktreeAction : DumbAwareAction(
         GitWorktreesOperationsService.getInstance(project)
             .checkoutBranchIgnoringOtherWorktrees(repository, branchName)
         e.getData(GitWorktreesDataKeys.PANEL)?.reload()
+    }
+
+    private fun checkoutDisabledReason(repository: GitRepository?, worktree: WorktreeInfo?): String? {
+        if (repository == null || worktree == null) return Gw4iBundle.message("action.GitWorktrees.Checkout.disabled.no.selection")
+        if (worktree.isCurrent) return Gw4iBundle.message("action.GitWorktrees.Checkout.disabled.current.worktree")
+
+        val branchName = worktree.branchName ?: return Gw4iBundle.message("action.GitWorktrees.Checkout.disabled.detached")
+        if (repository.currentBranchName == branchName) {
+            return Gw4iBundle.message("action.GitWorktrees.Checkout.disabled.branch.current", branchName)
+        }
+
+        return null
     }
 }
