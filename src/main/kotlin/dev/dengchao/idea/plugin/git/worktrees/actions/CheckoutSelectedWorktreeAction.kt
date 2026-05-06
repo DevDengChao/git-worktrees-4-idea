@@ -33,10 +33,14 @@ class CheckoutSelectedWorktreeAction : DumbAwareAction(
         val repository = e.getData(GitWorktreesDataKeys.CURRENT_REPOSITORY) ?: return
         val worktree = e.getData(GitWorktreesDataKeys.SELECTED_WORKTREE) ?: return
         val branchName = worktree.branchName ?: return
+        val panel = e.getData(GitWorktreesDataKeys.PANEL)
 
         GitWorktreesOperationsService.getInstance(project)
-            .checkoutBranchIgnoringOtherWorktrees(repository, branchName)
-        e.getData(GitWorktreesDataKeys.PANEL)?.reload()
+            .checkoutBranchIgnoringOtherWorktreesAsync(
+                repository,
+                branchName,
+                afterCompletion = { panel?.reload() },
+            )
     }
 
     private fun checkoutDisabledReason(repository: GitRepository?, worktree: WorktreeInfo?): String? {

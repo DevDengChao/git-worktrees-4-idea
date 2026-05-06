@@ -127,6 +127,8 @@ class GitWorktreesOperationsService(private val project: Project) {
     private var worktreesProvider: (GitRepository) -> List<WorktreeInfo> = ::defaultWorktrees
     private var branchDeletionDialogProvider: (String, String) -> DeleteWorktreeBranchDecision =
         ::showBranchUsedByWorktreeDialog
+    private var checkoutConflictDialogProvider: (String) -> Boolean = ::showCheckoutConflictDialog
+    private var checkoutRunner: (GitRepository, String, Boolean) -> CheckoutResult = ::runCheckout
     private var removeWorktreeRunner: (GitRepository, String) -> GitCommandResult = ::runRemoveWorktree
     private var deleteBranchRunner: (GitRepository, String, Boolean) -> GitCommandResult = ::runDeleteBranch
     private var backgroundTaskRunner: (String, () -> Unit, () -> Unit) -> Unit = ::queueBackgroundTask
@@ -163,14 +165,27 @@ class GitWorktreesOperationsService(private val project: Project) {
         }
     }
 
+    internal fun overrideCheckoutConflictDialogForTests(
+        dialogProvider: (String) -> Boolean,
+        parentDisposable: Disposable,
+    ) {
+        this.checkoutConflictDialogProvider = dialogProvider
+        Disposer.register(parentDisposable) {
+            this.checkoutConflictDialogProvider = ::showCheckoutConflictDialog
+        }
+    }
+
     internal fun overrideGitOperationsForTests(
+        checkoutRunner: (GitRepository, String, Boolean) -> CheckoutResult = ::runCheckout,
         removeWorktreeRunner: (GitRepository, String) -> GitCommandResult = ::runRemoveWorktree,
         deleteBranchRunner: (GitRepository, String, Boolean) -> GitCommandResult = ::runDeleteBranch,
         parentDisposable: Disposable,
     ) {
+        this.checkoutRunner = checkoutRunner
         this.removeWorktreeRunner = removeWorktreeRunner
         this.deleteBranchRunner = deleteBranchRunner
         Disposer.register(parentDisposable) {
+            this.checkoutRunner = ::runCheckout
             this.removeWorktreeRunner = ::runRemoveWorktree
             this.deleteBranchRunner = ::runDeleteBranch
         }
@@ -211,6 +226,15 @@ class GitWorktreesOperationsService(private val project: Project) {
 
     fun checkoutBranchIgnoringOtherWorktrees(repository: GitRepository, branchName: String): Boolean {
         return checkoutBranchWithConflictHandling(repository, branchName)
+    }
+
+    fun checkoutBranchIgnoringOtherWorktreesAsync(
+        repository: GitRepository,
+        branchName: String,
+        notifyResult: Boolean = true,
+        afterCompletion: () -> Unit = {},
+    ) {
+        checkoutWorktreeBranchAsync(repository, branchName, notifyResult, afterCompletion)
     }
 
     fun removeWorktree(repository: GitRepository, worktreePath: String, notifyResult: Boolean = true): Boolean {
@@ -268,6 +292,23 @@ class GitWorktreesOperationsService(private val project: Project) {
         notifyResult: Boolean = true,
     ): Boolean {
         return checkoutBranchWithConflictHandling(repository, branchName, notifyResult)
+    }
+
+    fun checkoutWorktreeBranchAsync(
+        repository: GitRepository,
+        branchName: String,
+        notifyResult: Boolean = true,
+        afterCompletion: () -> Unit = {},
+    ) {
+        backgroundTaskRunner(
+            Gw4iBundle.message("GitWorktrees.task.checkout.branch.title"),
+            {
+                checkoutWorktreeBranch(repository, branchName, notifyResult)
+            },
+            {
+                afterCompletion()
+            },
+        )
     }
 
     /**
@@ -436,7 +477,7 @@ class GitWorktreesOperationsService(private val project: Project) {
         branchName: String,
         notifyResult: Boolean = true,
     ): Boolean {
-        val initialResult = runCheckout(repository, branchName, force = false)
+        val initialResult = checkoutRunner(repository, branchName, false)
         if (initialResult.commandResult.success()) {
             refreshRepository(repository)
             if (notifyResult) {
@@ -454,16 +495,9 @@ class GitWorktreesOperationsService(private val project: Project) {
             return false
         }
 
-        val confirmed = MessageDialogBuilder.yesNo(
-            Gw4iBundle.message("GitWorktrees.dialog.checkout.worktree.title"),
-            Gw4iBundle.message("GitWorktrees.dialog.checkout.worktree.message", branchName),
-        )
-            .yesText(Gw4iBundle.message("GitWorktrees.dialog.checkout.worktree.yes"))
-            .ask(project)
+        if (!askCheckoutConflictConfirmation(branchName)) return false
 
-        if (!confirmed) return false
-
-        val forceResult = runCheckout(repository, branchName, force = true)
+        val forceResult = checkoutRunner(repository, branchName, true)
         if (!forceResult.commandResult.success()) {
             notifyCheckoutFailed(forceResult.commandResult)
             return false
@@ -478,6 +512,28 @@ class GitWorktreesOperationsService(private val project: Project) {
             )
         }
         return true
+    }
+
+    private fun askCheckoutConflictConfirmation(branchName: String): Boolean {
+        val application = ApplicationManager.getApplication()
+        if (application.isDispatchThread) {
+            return checkoutConflictDialogProvider(branchName)
+        }
+
+        var confirmed = false
+        application.invokeAndWait {
+            confirmed = checkoutConflictDialogProvider(branchName)
+        }
+        return confirmed
+    }
+
+    private fun showCheckoutConflictDialog(branchName: String): Boolean {
+        return MessageDialogBuilder.yesNo(
+            Gw4iBundle.message("GitWorktrees.dialog.checkout.worktree.title"),
+            Gw4iBundle.message("GitWorktrees.dialog.checkout.worktree.message", branchName),
+        )
+            .yesText(Gw4iBundle.message("GitWorktrees.dialog.checkout.worktree.yes"))
+            .ask(project)
     }
 
     private fun showBranchUsedByWorktreeDialog(
@@ -675,7 +731,7 @@ class GitWorktreesOperationsService(private val project: Project) {
         return result.errorOutput.any { it.contains("Directory not empty", ignoreCase = true) }
     }
 
-    private data class CheckoutResult(
+    internal data class CheckoutResult(
         val commandResult: GitCommandResult,
         val hasConflictingChanges: Boolean,
     )

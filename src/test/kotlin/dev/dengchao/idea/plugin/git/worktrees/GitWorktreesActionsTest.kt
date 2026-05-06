@@ -21,6 +21,7 @@ import dev.dengchao.idea.plugin.git.worktrees.model.WorktreeInfo
 import dev.dengchao.idea.plugin.git.worktrees.services.GitWorktreesOperationsService
 import dev.dengchao.idea.plugin.git.worktrees.ui.GitWorktreesDataKeys
 import dev.dengchao.idea.plugin.git.worktrees.ui.GitWorktreesPanel
+import git4idea.commands.GitCommandResult
 import git4idea.repo.GitRepository
 import java.lang.reflect.InvocationHandler
 import java.lang.reflect.Proxy
@@ -105,6 +106,54 @@ class GitWorktreesActionsTest : LightPlatform4TestCase() {
         assertEquals(
             Gw4iBundle.message("action.GitWorktrees.Checkout.disabled.detached"),
             event.presentation.description,
+        )
+    }
+
+    @Test
+    fun `test CheckoutSelectedWorktreeAction queues checkout in background before reloading panel`() {
+        val action = CheckoutSelectedWorktreeAction()
+        val events = mutableListOf<String>()
+        val repository = gitRepository(currentBranchName = "master") {
+            events += "refresh"
+        }
+        val worktree = WorktreeInfo(
+            path = "/tmp/feature-tree",
+            branchName = "feature",
+            isMain = false,
+            isCurrent = false,
+            isLocked = false,
+            isPrunable = false,
+        )
+        val service = GitWorktreesOperationsService.getInstance(project)
+        service.overrideGitOperationsForTests(
+            checkoutRunner = { _, branch, force ->
+                events += "checkout $branch force=$force"
+                GitWorktreesOperationsService.CheckoutResult(
+                    GitCommandResult(false, 0, emptyList(), emptyList()),
+                    hasConflictingChanges = false,
+                )
+            },
+            parentDisposable = testRootDisposable,
+        )
+        service.overrideTaskRunnersForTests(
+            backgroundTaskRunner = { title, runTask, onFinished ->
+                events += "task $title"
+                assertEquals(listOf("task $title"), events)
+                runTask()
+                onFinished()
+            },
+            parentDisposable = testRootDisposable,
+        )
+
+        action.actionPerformed(actionEvent(worktree, repository))
+
+        assertEquals(
+            listOf(
+                "task ${Gw4iBundle.message("GitWorktrees.task.checkout.branch.title")}",
+                "checkout feature force=false",
+                "refresh",
+            ),
+            events,
         )
     }
 
@@ -404,6 +453,7 @@ class GitWorktreesActionsTest : LightPlatform4TestCase() {
     private fun gitRepository(
         rootPath: String = "/project",
         currentBranchName: String?,
+        onUpdate: () -> Unit = {},
     ): GitRepository {
         val root = TestVirtualFile(rootPath)
         val handler = InvocationHandler { proxy, method, args ->
@@ -414,7 +464,7 @@ class GitWorktreesActionsTest : LightPlatform4TestCase() {
                 "getCurrentBranchName" -> currentBranchName
                 "isFresh" -> false
                 "isDisposed" -> false
-                "update" -> Unit
+                "update" -> onUpdate()
                 "dispose" -> Unit
                 "toLogString" -> rootPath
                 "toString" -> "GitRepository($rootPath)"

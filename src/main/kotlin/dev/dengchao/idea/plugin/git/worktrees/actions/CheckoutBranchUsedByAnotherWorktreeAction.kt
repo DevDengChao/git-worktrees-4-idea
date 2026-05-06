@@ -41,7 +41,7 @@ class CheckoutBranchUsedByAnotherWorktreeAction : DumbAwareAction(
         if (!confirmed) return
 
         GitWorktreesOperationsService.getInstance(project)
-            .checkoutBranchIgnoringOtherWorktrees(context.repository, context.branch.name)
+            .checkoutBranchIgnoringOtherWorktreesAsync(context.repository, context.branch.name)
     }
 
     private fun resolveContext(e: AnActionEvent): BranchContext? {

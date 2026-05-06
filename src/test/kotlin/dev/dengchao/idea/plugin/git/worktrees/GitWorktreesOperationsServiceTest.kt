@@ -2,6 +2,8 @@
 package dev.dengchao.idea.plugin.git.worktrees
 
 import com.intellij.testFramework.LightPlatform4TestCase
+import com.intellij.testFramework.PlatformTestUtil
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
 import dev.dengchao.idea.plugin.git.worktrees.model.WorktreeInfo
@@ -13,6 +15,7 @@ import git4idea.repo.GitRepository
 import java.lang.reflect.InvocationHandler
 import java.lang.reflect.Proxy
 import java.nio.file.Files
+import java.util.concurrent.Future
 import org.junit.Test
 
 /**
@@ -399,6 +402,106 @@ class GitWorktreesOperationsServiceTest : LightPlatform4TestCase() {
         assertEquals(listOf(Gw4iBundle.message("GitWorktrees.task.remove.worktree.title")), visibleTaskTitles)
         assertEquals(listOf(listOf(leftoverDirectory.toString())), cleanupRequests)
         assertTrue(Files.exists(leftoverDirectory))
+    }
+
+    @Test
+    fun `test async checkout runs in background and completes after repository refresh`() {
+        val events = mutableListOf<String>()
+        val repository = gitRepository(project.basePath!!, currentBranchName = "master") {
+            events += "refresh"
+        }
+        val service = GitWorktreesOperationsService.getInstance(project)
+
+        service.overrideGitOperationsForTests(
+            checkoutRunner = { _, branch, force ->
+                events += "checkout $branch force=$force"
+                GitWorktreesOperationsService.CheckoutResult(
+                    GitCommandResult(false, 0, emptyList(), emptyList()),
+                    hasConflictingChanges = false,
+                )
+            },
+            parentDisposable = testRootDisposable,
+        )
+        service.overrideTaskRunnersForTests(
+            backgroundTaskRunner = { title, runTask, onFinished ->
+                events += "task $title"
+                runTask()
+                events += "finished"
+                onFinished()
+            },
+            parentDisposable = testRootDisposable,
+        )
+
+        service.checkoutWorktreeBranchAsync(
+            repository,
+            branchName = "feature",
+            notifyResult = false,
+            afterCompletion = { events += "after completion" },
+        )
+
+        assertEquals(
+            listOf(
+                "task ${Gw4iBundle.message("GitWorktrees.task.checkout.branch.title")}",
+                "checkout feature force=false",
+                "refresh",
+                "finished",
+                "after completion",
+            ),
+            events,
+        )
+    }
+
+    @Test
+    fun `test checkout conflict confirmation is shown on EDT before force checkout`() {
+        val events = mutableListOf<String>()
+        val repository = gitRepository(project.basePath!!, currentBranchName = "master") {
+            events += "refresh"
+        }
+        val service = GitWorktreesOperationsService.getInstance(project)
+
+        service.overrideGitOperationsForTests(
+            checkoutRunner = { _, branch, force ->
+                events += "checkout $branch force=$force"
+                GitWorktreesOperationsService.CheckoutResult(
+                    GitCommandResult(false, if (force) 0 else 1, emptyList(), emptyList()),
+                    hasConflictingChanges = !force,
+                )
+            },
+            parentDisposable = testRootDisposable,
+        )
+        service.overrideCheckoutConflictDialogForTests(
+            dialogProvider = { branch ->
+                events += "confirm $branch onEdt=${ApplicationManager.getApplication().isDispatchThread}"
+                true
+            },
+            parentDisposable = testRootDisposable,
+        )
+        service.overrideTaskRunnersForTests(
+            backgroundTaskRunner = { _, runTask, onFinished ->
+                val future: Future<*> = ApplicationManager.getApplication().executeOnPooledThread {
+                    runTask()
+                    onFinished()
+                }
+                PlatformTestUtil.waitWithEventsDispatching("checkout background task", { future.isDone }, 10_000)
+            },
+            parentDisposable = testRootDisposable,
+        )
+
+        service.checkoutWorktreeBranchAsync(
+            repository,
+            branchName = "feature",
+            notifyResult = false,
+        )
+
+        assertEquals(
+            listOf(
+                "checkout feature force=false",
+                "confirm feature onEdt=true",
+                "checkout feature force=true",
+                "refresh",
+            ),
+            events,
+        )
     }
 
     @Test
