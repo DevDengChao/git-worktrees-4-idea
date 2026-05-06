@@ -17,14 +17,17 @@ class RemoveSelectedWorktreeAction : DumbAwareAction(
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.BGT
 
     override fun update(e: AnActionEvent) {
+        val repository = e.getData(GitWorktreesDataKeys.CURRENT_REPOSITORY)
         val worktree = e.getData(GitWorktreesDataKeys.SELECTED_WORKTREE)
-        e.presentation.isEnabledAndVisible = worktree != null && !worktree.isMain
+        e.presentation.isEnabledAndVisible = repository != null && worktree != null && !worktree.isMain
     }
 
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
         val repository = e.getData(GitWorktreesDataKeys.CURRENT_REPOSITORY) ?: return
         val worktree = e.getData(GitWorktreesDataKeys.SELECTED_WORKTREE) ?: return
+        val panel = e.getData(GitWorktreesDataKeys.PANEL)
+        val service = GitWorktreesOperationsService.getInstance(project)
 
         // Check if the worktree's branch is being used only by this worktree
         // If branch name exists and could be deleted, offer three options
@@ -36,13 +39,23 @@ class RemoveSelectedWorktreeAction : DumbAwareAction(
                 DeleteWorktreeBranchDecision.CANCEL -> return
                 DeleteWorktreeBranchDecision.DELETE_WORKTREE_ONLY -> {
                     // Only remove worktree, keep branch
-                    GitWorktreesOperationsService.getInstance(project)
-                        .removeWorktree(repository, worktree.path, notifyResult = true)
+                    service.removeWorktreeWithBranchDecisionAsync(
+                        repository,
+                        branchName,
+                        worktree.path,
+                        decision,
+                        afterCompletion = { panel?.reload() },
+                    )
                 }
                 DeleteWorktreeBranchDecision.DELETE_WORKTREE_AND_BRANCH -> {
                     // Remove both worktree and branch
-                    GitWorktreesOperationsService.getInstance(project)
-                        .handleBranchDeletionWithWorktree(repository, branchName, worktree.path)
+                    service.removeWorktreeWithBranchDecisionAsync(
+                        repository,
+                        branchName,
+                        worktree.path,
+                        decision,
+                        afterCompletion = { panel?.reload() },
+                    )
                 }
             }
         } else {
@@ -56,11 +69,12 @@ class RemoveSelectedWorktreeAction : DumbAwareAction(
 
             if (!confirmed) return
 
-            GitWorktreesOperationsService.getInstance(project)
-                .removeWorktree(repository, worktree.path)
+            service.removeWorktreeAsync(
+                repository,
+                worktree.path,
+                afterCompletion = { panel?.reload() },
+            )
         }
-
-        e.getData(GitWorktreesDataKeys.PANEL)?.reload()
     }
 
     private fun showRemovalDialog(

@@ -2,13 +2,18 @@ package dev.dengchao.idea.plugin.git.worktrees.services
 
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.Service
-import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.progress.ProgressIndicator
+import com.intellij.openapi.progress.Task
 import com.intellij.openapi.ui.MessageDialogBuilder
+import com.intellij.openapi.util.Disposer
+import com.intellij.openapi.util.io.NioFiles
 import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.openapi.vcs.VcsNotifier
 import dev.dengchao.idea.plugin.git.worktrees.Gw4iBundle
 import dev.dengchao.idea.plugin.git.worktrees.model.WorktreeInfo
+import java.nio.file.Files
+import java.nio.file.Path
 import git4idea.commands.Git
 import git4idea.commands.GitCommand
 import git4idea.commands.GitCommandResult
@@ -108,6 +113,10 @@ class GitWorktreesOperationsService(private val project: Project) {
 
     private var repositoriesProvider: () -> List<GitRepository> = ::defaultRepositories
     private var worktreesProvider: (GitRepository) -> List<WorktreeInfo> = ::defaultWorktrees
+    private var branchDeletionDialogProvider: (String, String) -> DeleteWorktreeBranchDecision =
+        ::showBranchUsedByWorktreeDialog
+    private var removeWorktreeRunner: (GitRepository, String) -> GitCommandResult = ::runRemoveWorktree
+    private var deleteBranchRunner: (GitRepository, String, Boolean) -> GitCommandResult = ::runDeleteBranch
 
     fun repositories(): List<GitRepository> {
         return repositoriesProvider()
@@ -127,6 +136,29 @@ class GitWorktreesOperationsService(private val project: Project) {
         Disposer.register(parentDisposable) {
             this.repositoriesProvider = ::defaultRepositories
             this.worktreesProvider = ::defaultWorktrees
+        }
+    }
+
+    internal fun overrideBranchDeletionDialogForTests(
+        dialogProvider: (String, String) -> DeleteWorktreeBranchDecision,
+        parentDisposable: Disposable,
+    ) {
+        this.branchDeletionDialogProvider = dialogProvider
+        Disposer.register(parentDisposable) {
+            this.branchDeletionDialogProvider = ::showBranchUsedByWorktreeDialog
+        }
+    }
+
+    internal fun overrideGitOperationsForTests(
+        removeWorktreeRunner: (GitRepository, String) -> GitCommandResult = ::runRemoveWorktree,
+        deleteBranchRunner: (GitRepository, String, Boolean) -> GitCommandResult = ::runDeleteBranch,
+        parentDisposable: Disposable,
+    ) {
+        this.removeWorktreeRunner = removeWorktreeRunner
+        this.deleteBranchRunner = deleteBranchRunner
+        Disposer.register(parentDisposable) {
+            this.removeWorktreeRunner = ::runRemoveWorktree
+            this.deleteBranchRunner = ::runDeleteBranch
         }
     }
 
@@ -155,8 +187,8 @@ class GitWorktreesOperationsService(private val project: Project) {
     }
 
     fun removeWorktree(repository: GitRepository, worktreePath: String, notifyResult: Boolean = true): Boolean {
-        val result = runRemoveWorktree(repository, worktreePath)
-        if (!result.success()) {
+        val result = removeWorktreeRunner(repository, worktreePath)
+        if (!result.success() && !tryCleanupUnregisteredWorktree(repository, worktreePath, result)) {
             notifyDeleteWorktreeFailed(result)
             return false
         }
@@ -178,7 +210,7 @@ class GitWorktreesOperationsService(private val project: Project) {
         force: Boolean = true,
         notifyResult: Boolean = true,
     ): Boolean {
-        val result = runDeleteBranch(repository, branchName, force)
+        val result = deleteBranchRunner(repository, branchName, force)
         if (!result.success()) {
             notifyDeleteBranchFailed(result)
             return false
@@ -223,31 +255,82 @@ class GitWorktreesOperationsService(private val project: Project) {
         branchName: String,
         worktreePath: String,
     ): Boolean {
-        val decision = showBranchUsedByWorktreeDialog(branchName, worktreePath)
+        val decision = askBranchDeletionDecision(branchName, worktreePath)
+        return removeWorktreeWithBranchDecision(
+            repository = repository,
+            branchName = branchName,
+            worktreePath = worktreePath,
+            decision = decision,
+        )
+    }
+
+    fun askBranchDeletionDecision(branchName: String, worktreePath: String): DeleteWorktreeBranchDecision {
+        return branchDeletionDialogProvider(branchName, worktreePath)
+    }
+
+    fun removeWorktreeWithBranchDecision(
+        repository: GitRepository,
+        branchName: String,
+        worktreePath: String,
+        decision: DeleteWorktreeBranchDecision,
+        notifyResult: Boolean = true,
+    ): Boolean {
         if (decision == DeleteWorktreeBranchDecision.CANCEL) {
             return false
         }
 
-        // First, remove the worktree
-        val removeWorktreeResult = runRemoveWorktree(repository, worktreePath)
-        if (!removeWorktreeResult.success()) {
-            notifyDeleteWorktreeFailed(removeWorktreeResult)
+        if (!removeWorktree(repository, worktreePath, notifyResult = false)) {
             return false
         }
 
-        // If user chose to delete both, delete the branch too
         if (decision == DeleteWorktreeBranchDecision.DELETE_WORKTREE_AND_BRANCH) {
-            return deleteBranch(repository, branchName, force = true, notifyResult = true)
+            return deleteBranch(repository, branchName, force = true, notifyResult = notifyResult)
         }
 
-        // DELETE_WORKTREE_ONLY: worktree removed, branch kept
-        refreshRepository(repository)
-        VcsNotifier.getInstance(project).notifySuccess(
-            "gw4i.worktree.delete.success",
-            "",
-            Gw4iBundle.message("GitWorktrees.notification.worktree.delete.success", worktreePath),
-        )
+        if (notifyResult) {
+            VcsNotifier.getInstance(project).notifySuccess(
+                "gw4i.worktree.delete.success",
+                "",
+                Gw4iBundle.message("GitWorktrees.notification.worktree.delete.only.success", worktreePath, branchName),
+            )
+        }
         return true
+    }
+
+    fun removeWorktreeAsync(
+        repository: GitRepository,
+        worktreePath: String,
+        notifyResult: Boolean = true,
+        afterCompletion: () -> Unit = {},
+    ) {
+        object : Task.Backgroundable(project, Gw4iBundle.message("GitWorktrees.task.remove.worktree.title"), true) {
+            override fun run(indicator: ProgressIndicator) {
+                removeWorktree(repository, worktreePath, notifyResult)
+            }
+
+            override fun onFinished() {
+                afterCompletion()
+            }
+        }.queue()
+    }
+
+    fun removeWorktreeWithBranchDecisionAsync(
+        repository: GitRepository,
+        branchName: String,
+        worktreePath: String,
+        decision: DeleteWorktreeBranchDecision,
+        notifyResult: Boolean = true,
+        afterCompletion: () -> Unit = {},
+    ) {
+        object : Task.Backgroundable(project, Gw4iBundle.message("GitWorktrees.task.remove.worktree.title"), true) {
+            override fun run(indicator: ProgressIndicator) {
+                removeWorktreeWithBranchDecision(repository, branchName, worktreePath, decision, notifyResult)
+            }
+
+            override fun onFinished() {
+                afterCompletion()
+            }
+        }.queue()
     }
 
     private fun checkoutBranchWithConflictHandling(
@@ -398,6 +481,32 @@ class GitWorktreesOperationsService(private val project: Project) {
             result.errorOutputAsHtmlString,
             true,
         )
+    }
+
+    private fun tryCleanupUnregisteredWorktree(
+        repository: GitRepository,
+        worktreePath: String,
+        result: GitCommandResult,
+    ): Boolean {
+        if (!isDirectoryNotEmptyFailure(result)) return false
+
+        val stillRegistered = worktrees(repository).any { normalizePath(it.path) == normalizePath(worktreePath) }
+        if (stillRegistered) return false
+
+        val path = Path.of(worktreePath)
+        if (!Files.exists(path)) return true
+        if (!Files.isDirectory(path)) return false
+
+        return try {
+            NioFiles.deleteRecursively(path)
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun isDirectoryNotEmptyFailure(result: GitCommandResult): Boolean {
+        return result.errorOutput.any { it.contains("Directory not empty", ignoreCase = true) }
     }
 
     private data class CheckoutResult(

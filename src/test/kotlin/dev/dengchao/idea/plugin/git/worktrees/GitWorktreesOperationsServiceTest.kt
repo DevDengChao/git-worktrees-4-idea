@@ -2,8 +2,16 @@
 package dev.dengchao.idea.plugin.git.worktrees
 
 import com.intellij.testFramework.LightPlatform4TestCase
+import com.intellij.openapi.vfs.LocalFileSystem
+import com.intellij.openapi.vfs.VirtualFile
 import dev.dengchao.idea.plugin.git.worktrees.model.WorktreeInfo
 import dev.dengchao.idea.plugin.git.worktrees.services.DeleteWorktreeBranchDecision
+import dev.dengchao.idea.plugin.git.worktrees.services.GitWorktreesOperationsService
+import git4idea.commands.GitCommandResult
+import git4idea.repo.GitRepository
+import java.lang.reflect.InvocationHandler
+import java.lang.reflect.Proxy
+import java.nio.file.Files
 import org.junit.Test
 
 /**
@@ -88,10 +96,90 @@ class GitWorktreesOperationsServiceTest : LightPlatform4TestCase() {
 
     @Test
     fun `test DeleteWorktreeBranchDecision enum values`() {
-        assert(DeleteWorktreeBranchDecision.values().size == 3)
-        assert(DeleteWorktreeBranchDecision.CANCEL != null)
-        assert(DeleteWorktreeBranchDecision.DELETE_WORKTREE_ONLY != null)
-        assert(DeleteWorktreeBranchDecision.DELETE_WORKTREE_AND_BRANCH != null)
+        assertEquals(
+            listOf(
+                DeleteWorktreeBranchDecision.CANCEL,
+                DeleteWorktreeBranchDecision.DELETE_WORKTREE_ONLY,
+                DeleteWorktreeBranchDecision.DELETE_WORKTREE_AND_BRANCH,
+            ),
+            DeleteWorktreeBranchDecision.values().toList(),
+        )
+    }
+
+    @Test
+    fun `test removeWorktreeWithBranchDecision does not ask for branch decision again`() {
+        val repository = gitRepository(project.basePath!!, currentBranchName = "master")
+        val service = GitWorktreesOperationsService.getInstance(project)
+        var dialogCalls = 0
+        var removeCalls = 0
+        var deleteCalls = 0
+
+        service.overrideProvidersForTests(
+            repositoriesProvider = { listOf(repository) },
+            worktreesProvider = { emptyList() },
+            parentDisposable = testRootDisposable,
+        )
+        service.overrideBranchDeletionDialogForTests(
+            dialogProvider = { _, _ ->
+                dialogCalls++
+                DeleteWorktreeBranchDecision.DELETE_WORKTREE_AND_BRANCH
+            },
+            parentDisposable = testRootDisposable,
+        )
+        service.overrideGitOperationsForTests(
+            removeWorktreeRunner = { _, _ ->
+                removeCalls++
+                GitCommandResult(false, 0, emptyList(), emptyList())
+            },
+            deleteBranchRunner = { _, _, _ ->
+                deleteCalls++
+                GitCommandResult(false, 0, emptyList(), emptyList())
+            },
+            parentDisposable = testRootDisposable,
+        )
+
+        val result = service.removeWorktreeWithBranchDecision(
+            repository,
+            branchName = "feature",
+            worktreePath = "/tmp/feature",
+            decision = DeleteWorktreeBranchDecision.DELETE_WORKTREE_AND_BRANCH,
+            notifyResult = false,
+        )
+
+        assertTrue(result)
+        assertEquals(0, dialogCalls)
+        assertEquals(1, removeCalls)
+        assertEquals(1, deleteCalls)
+    }
+
+    @Test
+    fun `test removeWorktree cleans leftover directory after git unregisters worktree`() {
+        val repository = gitRepository(project.basePath!!, currentBranchName = "master")
+        val service = GitWorktreesOperationsService.getInstance(project)
+        val leftoverDirectory = Files.createTempDirectory("gw4i-leftover-worktree")
+        Files.writeString(leftoverDirectory.resolve("leftover.txt"), "leftover")
+
+        service.overrideProvidersForTests(
+            repositoriesProvider = { listOf(repository) },
+            worktreesProvider = { emptyList() },
+            parentDisposable = testRootDisposable,
+        )
+        service.overrideGitOperationsForTests(
+            removeWorktreeRunner = { _, path ->
+                GitCommandResult(
+                    false,
+                    1,
+                    listOf("error: failed to delete '$path': Directory not empty"),
+                    emptyList(),
+                )
+            },
+            parentDisposable = testRootDisposable,
+        )
+
+        val result = service.removeWorktree(repository, leftoverDirectory.toString(), notifyResult = false)
+
+        assertTrue(result)
+        assertFalse(Files.exists(leftoverDirectory))
     }
 
     /**
@@ -143,5 +231,64 @@ class GitWorktreesOperationsServiceTest : LightPlatform4TestCase() {
         }
         flush()
         return entries
+    }
+
+    private fun gitRepository(
+        rootPath: String,
+        currentBranchName: String?,
+    ): GitRepository {
+        val root = TestVirtualFile(rootPath)
+        val handler = InvocationHandler { proxy, method, args ->
+            when (method.name) {
+                "getProject" -> this.project
+                "getRoot" -> root
+                "getPresentableUrl" -> rootPath
+                "getCurrentBranchName" -> currentBranchName
+                "isFresh" -> false
+                "isDisposed" -> false
+                "update" -> Unit
+                "dispose" -> Unit
+                "toLogString" -> rootPath
+                "toString" -> "GitRepository($rootPath)"
+                "hashCode" -> System.identityHashCode(proxy)
+                "equals" -> proxy === args?.firstOrNull()
+                else -> null
+            }
+        }
+        return Proxy.newProxyInstance(
+            GitRepository::class.java.classLoader,
+            arrayOf(GitRepository::class.java),
+            handler,
+        ) as GitRepository
+    }
+
+    private class TestVirtualFile(
+        private val filePath: String,
+    ) : VirtualFile() {
+        override fun getName(): String = filePath.substringAfterLast('/')
+        override fun getFileSystem() = LocalFileSystem.getInstance()
+        override fun getPath(): String = filePath
+        override fun isWritable(): Boolean = true
+        override fun isDirectory(): Boolean = true
+        override fun isValid(): Boolean = true
+        override fun getParent(): VirtualFile? {
+            val parentPath = filePath.trimEnd('/').substringBeforeLast('/', missingDelimiterValue = "")
+            if (parentPath.isBlank()) return null
+            return TestVirtualFile(parentPath)
+        }
+
+        override fun getChildren(): Array<VirtualFile> = emptyArray()
+        override fun getOutputStream(requestor: Any?, newModificationStamp: Long, newTimeStamp: Long) = throw UnsupportedOperationException()
+        override fun contentsToByteArray(): ByteArray = ByteArray(0)
+        override fun getTimeStamp(): Long = 0
+        override fun getLength(): Long = 0
+        override fun refresh(asynchronous: Boolean, recursive: Boolean, postRunnable: Runnable?) = Unit
+        override fun getInputStream() = throw UnsupportedOperationException()
+
+        override fun equals(other: Any?): Boolean {
+            return other is VirtualFile && other.path == filePath
+        }
+
+        override fun hashCode(): Int = filePath.hashCode()
     }
 }

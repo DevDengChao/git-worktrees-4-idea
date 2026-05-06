@@ -27,8 +27,15 @@ class DeleteBranchUsedByAnotherWorktreeAction : DumbAwareAction(
         val context = resolveContext(e) ?: return
         val service = GitWorktreesOperationsService.getInstance(project)
 
-        // Use the centralized handleBranchDeletionWithWorktree method
-        service.handleBranchDeletionWithWorktree(context.repository, context.branch.name, context.worktree.path)
+        val decision = service.askBranchDeletionDecision(context.branch.name, context.worktree.path)
+        if (decision == DeleteWorktreeBranchDecision.CANCEL) return
+
+        service.removeWorktreeWithBranchDecisionAsync(
+            context.repository,
+            context.branch.name,
+            context.worktree.path,
+            decision,
+        )
     }
 
     private fun resolveContext(e: AnActionEvent): BranchContext? {

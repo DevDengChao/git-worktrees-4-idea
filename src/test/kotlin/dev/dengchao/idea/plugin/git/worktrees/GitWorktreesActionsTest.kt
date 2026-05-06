@@ -11,6 +11,7 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.testFramework.LightPlatform4TestCase
 import com.intellij.testFramework.TestActionEvent
 import dev.dengchao.idea.plugin.git.worktrees.actions.CheckoutWorktreeInOtherRepositoryAction
+import dev.dengchao.idea.plugin.git.worktrees.actions.RemoveSelectedWorktreeAction
 import dev.dengchao.idea.plugin.git.worktrees.actions.ShowGitWorktreesToolWindowAction
 import dev.dengchao.idea.plugin.git.worktrees.model.WorktreeInfo
 import dev.dengchao.idea.plugin.git.worktrees.services.GitWorktreesOperationsService
@@ -157,6 +158,63 @@ class GitWorktreesActionsTest : LightPlatform4TestCase() {
     }
 
     @Test
+    fun `test RemoveSelectedWorktreeAction enabled for linked worktree with repository context`() {
+        val action = RemoveSelectedWorktreeAction()
+        assert(action.actionUpdateThread == ActionUpdateThread.BGT)
+        val repository = gitRepository(currentBranchName = "master")
+        val worktree = WorktreeInfo(
+            path = "/tmp/feature-tree",
+            branchName = "feature",
+            isMain = false,
+            isCurrent = false,
+            isLocked = false,
+            isPrunable = false,
+        )
+
+        val event = actionEvent(worktree, repository)
+        action.update(event)
+
+        assertTrue(event.presentation.isEnabledAndVisible)
+    }
+
+    @Test
+    fun `test RemoveSelectedWorktreeAction disabled without repository context`() {
+        val action = RemoveSelectedWorktreeAction()
+        val worktree = WorktreeInfo(
+            path = "/tmp/feature-tree",
+            branchName = "feature",
+            isMain = false,
+            isCurrent = false,
+            isLocked = false,
+            isPrunable = false,
+        )
+
+        val event = actionEvent(worktree)
+        action.update(event)
+
+        assertFalse(event.presentation.isEnabledAndVisible)
+    }
+
+    @Test
+    fun `test RemoveSelectedWorktreeAction disabled for main worktree`() {
+        val action = RemoveSelectedWorktreeAction()
+        val repository = gitRepository(currentBranchName = "master")
+        val worktree = WorktreeInfo(
+            path = "/project",
+            branchName = "master",
+            isMain = true,
+            isCurrent = true,
+            isLocked = false,
+            isPrunable = false,
+        )
+
+        val event = actionEvent(worktree, repository)
+        action.update(event)
+
+        assertFalse(event.presentation.isEnabledAndVisible)
+    }
+
+    @Test
     fun `test WorktreeInfo data class`() {
         val worktree = WorktreeInfo(
             path = "/tmp/feature-tree",
@@ -185,9 +243,13 @@ class GitWorktreesActionsTest : LightPlatform4TestCase() {
         assert(worktree2.name == "bugfix-123")
     }
 
-    private fun actionEvent(worktree: WorktreeInfo): com.intellij.openapi.actionSystem.AnActionEvent {
+    private fun actionEvent(
+        worktree: WorktreeInfo,
+        repository: GitRepository? = null,
+    ): com.intellij.openapi.actionSystem.AnActionEvent {
         return TestActionEvent.createTestEvent(CustomizedDataContext.withSnapshot(DataContext.EMPTY_CONTEXT) { sink ->
             sink[PlatformDataKeys.PROJECT] = project
+            repository?.let { sink[GitWorktreesDataKeys.CURRENT_REPOSITORY] = it }
             sink[GitWorktreesDataKeys.SELECTED_WORKTREE] = worktree
         })
     }
