@@ -9,6 +9,15 @@ These SVGs are based on the supplied branch-with-checkmark glyph.
 - `worktrees-icon-*.svg` are ready-to-use promotional variants.
 - `worktrees-promo-card.svg` is a larger square-corner promotional card.
 - `preview.html` shows all variants and includes controls for size and colors.
+- `tool-window-icons-preview.html` previews the New UI tool window entry icons.
+
+The tool window entry icon set follows the JetBrains New UI guidance for
+outlined monochrome tool window icons:
+
+- `src/main/resources/icons/toolWindowIcon.svg` uses a 20x20 canvas and `#6C707E` for light theme.
+- `src/main/resources/icons/toolWindowIcon_dark.svg` uses a 20x20 canvas and `#CED0D6` for dark theme.
+- `src/main/resources/icons/toolWindowIconCompact.svg` and `_dark.svg` are 16x16 compact-mode companions.
+- `src/main/resources/META-INF/plugin.xml` references `/icons/toolWindowIcon.svg`; the IntelliJ icon loader can resolve the matching `_dark.svg` variant.
 
 For the template icon, override the variables on the root `<svg>` element:
 

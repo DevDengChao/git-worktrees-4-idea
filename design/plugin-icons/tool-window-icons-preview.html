@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>New UI Tool Window Icon Preview</title>
+<style>
+:root {
+  --bg: #f3f1ec;
+  --panel: #ffffff;
+  --line: #d7d0c5;
+  --text: #202329;
+  --muted: #68707d;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Segoe UI", ui-sans-serif, sans-serif;
+  letter-spacing: 0;
+}
+main {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 28px 20px 42px;
+}
+h1 { margin: 0 0 8px; font-size: 27px; line-height: 1.1; }
+p { margin: 0 0 18px; color: var(--muted); line-height: 1.55; }
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(320px, 1fr));
+  gap: 16px;
+}
+.shot {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 8px 24px rgba(32, 35, 41, .08);
+}
+.ide {
+  height: 310px;
+  border-radius: 8px;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: 1fr 48px;
+}
+.ide.light {
+  background: #f7f8fa;
+  border: 1px solid #d8dbe2;
+}
+.ide.dark {
+  background: #2b2d31;
+  border: 1px solid #42454d;
+}
+.canvas {
+  position: relative;
+  border-right: 1px solid rgba(0,0,0,.12);
+}
+.dark .canvas { border-right-color: rgba(255,255,255,.12); }
+.stripe {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 22px;
+  top: 126px;
+  background: rgba(108,112,126,.17);
+}
+.dark .stripe { background: rgba(206,208,214,.17); }
+.bar {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 12px;
+  padding-top: 18px;
+}
+.light .bar { background: #f2f3f5; }
+.dark .bar { background: #2f3137; }
+.slot {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+}
+.slot.active.light-slot { background: #e6e9ee; }
+.slot.active.dark-slot { background: #3d4048; }
+.slot img { display: block; }
+.label {
+  margin-top: 12px;
+  font-family: "Cascadia Mono", Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.scale-row {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 8px;
+}
+.sample {
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  color: var(--muted);
+  font-family: "Cascadia Mono", Consolas, monospace;
+  font-size: 12px;
+}
+@media (max-width: 760px) {
+  main { padding: 20px 12px 32px; }
+  .grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<main>
+  <h1>New UI Tool Window Icon Preview</h1>
+  <p>Outlined monochrome icons for the JetBrains New UI tool window bar. The 20x20 assets are used by the plugin descriptor; the 16x16 assets are compact-mode companions.</p>
+  <section class="grid">
+    <article class="shot">
+      <div class="ide light">
+        <div class="canvas"><div class="stripe"></div></div>
+        <div class="bar">
+          <div class="slot"><img src="../../src/main/resources/icons/toolWindowIcon.svg" width="20" height="20" alt=""></div>
+          <div class="slot active light-slot"><img src="../../src/main/resources/icons/toolWindowIcon.svg" width="20" height="20" alt=""></div>
+          <div class="slot"><img src="../../src/main/resources/icons/toolWindowIconCompact.svg" width="16" height="16" alt=""></div>
+        </div>
+      </div>
+      <div class="label">Light theme: icons/toolWindowIcon.svg + icons/toolWindowIconCompact.svg</div>
+    </article>
+    <article class="shot">
+      <div class="ide dark">
+        <div class="canvas"><div class="stripe"></div></div>
+        <div class="bar">
+          <div class="slot"><img src="../../src/main/resources/icons/toolWindowIcon_dark.svg" width="20" height="20" alt=""></div>
+          <div class="slot active dark-slot"><img src="../../src/main/resources/icons/toolWindowIcon_dark.svg" width="20" height="20" alt=""></div>
+          <div class="slot"><img src="../../src/main/resources/icons/toolWindowIconCompact_dark.svg" width="16" height="16" alt=""></div>
+        </div>
+      </div>
+      <div class="label">Dark theme: icons/toolWindowIcon_dark.svg + icons/toolWindowIconCompact_dark.svg</div>
+    </article>
+  </section>
+  <section class="scale-row">
+    <div class="sample"><img src="../../src/main/resources/icons/toolWindowIcon.svg" width="20" height="20" alt="">20 light</div>
+    <div class="sample"><img src="../../src/main/resources/icons/toolWindowIcon_dark.svg" width="20" height="20" alt="" style="background:#2f3137;padding:4px;box-sizing:content-box;border-radius:6px">20 dark</div>
+    <div class="sample"><img src="../../src/main/resources/icons/toolWindowIconCompact.svg" width="16" height="16" alt="">16 light</div>
+    <div class="sample"><img src="../../src/main/resources/icons/toolWindowIconCompact_dark.svg" width="16" height="16" alt="" style="background:#2f3137;padding:4px;box-sizing:content-box;border-radius:6px">16 dark</div>
+  </section>
+</main>
+</body>
+</html>

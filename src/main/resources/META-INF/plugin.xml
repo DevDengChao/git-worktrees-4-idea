@@ -11,7 +11,7 @@
     <extensions defaultExtensionNs="com.intellij">
         <toolWindow id="Git Worktrees"
                     factoryClass="dev.dengchao.idea.plugin.git.worktrees.ui.GitWorktreesToolWindowFactory"
-                    icon="AllIcons.Vcs.Branch"
+                    icon="/icons/toolWindowIcon.svg"
                     anchor="right"
                     secondary="true"/>
     </extensions>
