@@ -14,6 +14,7 @@
 - For checkout candidates in the Git Worktrees popup, keep actions visible when exactly one worktree row is selected. If checkout is not currently possible, disable the action and put the reason in `Presentation.description` so the menu/status-bar hint explains why.
 - Checkout actions should stay available for a selected non-current worktree even when its branch name already matches the repository's current branch; Git can still surface useful status/errors with `checkout --ignore-other-worktrees`, while hiding the action makes duplicate same-branch worktrees look unresponsive.
 - Plugin logo files should live at `src/main/resources/META-INF/pluginIcon.svg` and, when needed, `pluginIcon_dark.svg`; JetBrains expects 40x40 SVG icons there. Promotional variants and previews can live under `design/plugin-icons/`.
+- Marketing screenshots and bilingual promotional copy should live under `design/marketing/`. Keep screenshots text-clean when possible, and put English + Chinese copy in the same Markdown file so README and Marketplace material stay reusable.
 - For panel/action/service changes, run the targeted suite with:
   `./gradlew.bat test --tests dev.dengchao.idea.plugin.git.worktrees.GitWorktreesPanelTest --tests dev.dengchao.idea.plugin.git.worktrees.GitWorktreesActionsTest --tests dev.dengchao.idea.plugin.git.worktrees.GitWorktreesOperationsServiceTest`
 - Before merging feature work, run `./gradlew.bat test`.
