@@ -17,6 +17,7 @@ import java.awt.Container
 import java.lang.reflect.InvocationHandler
 import java.lang.reflect.Proxy
 import javax.swing.JButton
+import javax.swing.JLabel
 import javax.swing.JScrollPane
 import javax.swing.SwingUtilities
 import org.junit.Test
@@ -126,21 +127,46 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
     }
 
     @Test
+    fun `header cells place filter between title and icon sort button`() {
+        val repository = gitRepository(rootPath = "/project/root", currentBranchName = "master")
+        val panel = panelWithWorktrees(repository, emptyList())
+        val headerControls = panel.headerControlsForTests()
+
+        GitWorktreesPanel.Column.entries.forEach { column ->
+            val title = headerControls.titleLabels.getValue(column)
+            val filter = headerControls.filterFields.getValue(column)
+            val sortButton = headerControls.sortButtons.getValue(column)
+            val headerCell = filter.parent
+            val headerComponents = headerCell.components.toList()
+
+            assertSame(headerCell, title.parent)
+            assertSame(headerCell, sortButton.parent)
+            assertTrue(headerComponents.indexOf(title) < headerComponents.indexOf(filter))
+            assertTrue(headerComponents.indexOf(filter) < headerComponents.indexOf(sortButton))
+            assertEquals("", sortButton.text)
+            assertNotNull(sortButton.icon)
+        }
+    }
+
+    @Test
     fun `header filter fields and sort buttons drive the visible rows`() {
         val repository = gitRepository(rootPath = "/project/root", currentBranchName = "master")
         val alpha = WorktreeInfo(path = "/project/alpha-tree", branchName = "feature/login", isMain = false, isCurrent = false, isLocked = false, isPrunable = false)
         val beta = WorktreeInfo(path = "/project/beta-tree", branchName = "feature/report", isMain = false, isCurrent = false, isLocked = false, isPrunable = false)
         val panel = panelWithWorktrees(repository, listOf(beta, alpha))
         val headerControls = panel.headerControlsForTests()
+        val sortButton = headerControls.sortButtons.getValue(GitWorktreesPanel.Column.WORKTREE_ID)
+        val disabledIcon = sortButton.icon
 
         headerControls.filterFields.getValue(GitWorktreesPanel.Column.BRANCH_NAME).text = "LOGIN"
 
         assertEquals(listOf("root", "alpha-tree"), panel.visibleRowLabelsForTests())
 
         headerControls.filterFields.getValue(GitWorktreesPanel.Column.BRANCH_NAME).text = ""
-        headerControls.sortButtons.getValue(GitWorktreesPanel.Column.WORKTREE_ID).doClick()
+        sortButton.doClick()
 
-        assertEquals("^", headerControls.sortButtons.getValue(GitWorktreesPanel.Column.WORKTREE_ID).text)
+        assertEquals("", sortButton.text)
+        assertNotSame(disabledIcon, sortButton.icon)
         assertEquals(listOf("root", "alpha-tree", "beta-tree"), panel.visibleRowLabelsForTests())
     }
 
@@ -440,6 +466,7 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
     }
 
     private data class HeaderControls(
+        val titleLabels: Map<GitWorktreesPanel.Column, JLabel>,
         val filterFields: Map<GitWorktreesPanel.Column, JBTextField>,
         val sortButtons: Map<GitWorktreesPanel.Column, JButton>,
     )
@@ -449,11 +476,16 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
             .filterIsInstance<JButton>()
             .filter { it.toolTipText == Gw4iBundle.message("toolwindow.GitWorktrees.sort.button.tooltip") }
         val filterFields = descendantsForTests().filterIsInstance<JBTextField>()
+        val titleLabels = descendantsForTests()
+            .filterIsInstance<JLabel>()
+            .filter { label -> label.text in columnNamesForTests() }
 
         assertEquals(3, sortButtons.size)
         assertEquals(3, filterFields.size)
+        assertEquals(3, titleLabels.size)
 
         return HeaderControls(
+            titleLabels = GitWorktreesPanel.Column.entries.zip(titleLabels).toMap(),
             filterFields = GitWorktreesPanel.Column.entries.zip(filterFields).toMap(),
             sortButtons = GitWorktreesPanel.Column.entries.zip(sortButtons).toMap(),
         )

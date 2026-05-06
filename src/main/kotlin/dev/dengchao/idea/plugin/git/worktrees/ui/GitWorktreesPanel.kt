@@ -40,6 +40,7 @@ import javax.swing.JPanel
 import javax.swing.JTable
 import javax.swing.ListSelectionModel
 import javax.swing.SwingConstants
+import javax.swing.Icon
 import javax.swing.event.DocumentEvent
 import javax.swing.event.DocumentListener
 import javax.swing.table.AbstractTableModel
@@ -285,25 +286,11 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
     }
 
     private fun createHeaderCell(column: Column): JPanel {
-        val title = JLabel(Gw4iBundle.message(column.titleKey))
-        val sortButton = JButton(sortButtonText(column)).apply {
-            margin = JBUI.insets(0, 4)
-            toolTipText = Gw4iBundle.message("toolwindow.GitWorktrees.sort.button.tooltip")
-            addActionListener {
-                toggleSort(column)
-            }
+        val title = JLabel(Gw4iBundle.message(column.titleKey)).apply {
+            border = JBUI.Borders.empty(0, 0, 0, 6)
         }
-        sortButtons[column] = sortButton
-
-        val labelRow = JPanel(BorderLayout()).apply {
-            isOpaque = false
-            add(title, BorderLayout.CENTER)
-            add(sortButton, BorderLayout.EAST)
-        }
-
         val filterField = JBTextField().apply {
             emptyText.text = Gw4iBundle.message(column.filterKey)
-            border = JBUI.Borders.empty(1, 0)
             document.addDocumentListener(object : DocumentListener {
                 override fun insertUpdate(e: DocumentEvent) = updateFilter()
                 override fun removeUpdate(e: DocumentEvent) = updateFilter()
@@ -316,13 +303,29 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
         }
         filterFields[column] = filterField
 
+        val sortButton = JButton(sortButtonIcon(column)).apply {
+            text = ""
+            isFocusable = false
+            isBorderPainted = false
+            isContentAreaFilled = false
+            isOpaque = false
+            margin = JBUI.emptyInsets()
+            preferredSize = Dimension(JBUI.scale(28), JBUI.scale(24))
+            toolTipText = Gw4iBundle.message("toolwindow.GitWorktrees.sort.button.tooltip")
+            addActionListener {
+                toggleSort(column)
+            }
+        }
+        sortButtons[column] = sortButton
+
         return JPanel(BorderLayout()).apply {
             border = BorderFactory.createCompoundBorder(
                 JBUI.Borders.customLine(UIUtil.getBoundsColor(), 0, 0, 0, 1),
                 JBUI.Borders.empty(2, 4, 2, 4),
             )
-            add(labelRow, BorderLayout.NORTH)
+            add(title, BorderLayout.WEST)
             add(filterField, BorderLayout.CENTER)
+            add(sortButton, BorderLayout.EAST)
         }
     }
 
@@ -400,15 +403,15 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
 
     private fun updateSortButtons() {
         Column.entries.forEach { column ->
-            sortButtons[column]?.text = sortButtonText(column)
+            sortButtons[column]?.icon = sortButtonIcon(column)
         }
     }
 
-    private fun sortButtonText(column: Column): String {
+    private fun sortButtonIcon(column: Column): Icon {
         return when (sortRules.firstOrNull { it.column == column }?.direction) {
-            SortDirection.ASCENDING -> "^"
-            SortDirection.DESCENDING -> "v"
-            null -> "-"
+            SortDirection.ASCENDING -> AllIcons.General.ArrowUp
+            SortDirection.DESCENDING -> AllIcons.General.ArrowDown
+            null -> AllIcons.Ide.UpDown
         }
     }
 
