@@ -3,6 +3,7 @@ package dev.dengchao.idea.plugin.git.worktrees
 
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.ui.components.JBTextField
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.testFramework.LightPlatform4TestCase
@@ -11,8 +12,13 @@ import dev.dengchao.idea.plugin.git.worktrees.services.GitWorktreesOperationsSer
 import dev.dengchao.idea.plugin.git.worktrees.ui.GitWorktreesDataKeys
 import dev.dengchao.idea.plugin.git.worktrees.ui.GitWorktreesPanel
 import git4idea.repo.GitRepository
+import java.awt.Component
+import java.awt.Container
 import java.lang.reflect.InvocationHandler
 import java.lang.reflect.Proxy
+import javax.swing.JButton
+import javax.swing.JScrollPane
+import javax.swing.SwingUtilities
 import org.junit.Test
 
 /**
@@ -88,7 +94,7 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
 
         val panel = panelWithWorktrees(repository, listOf(worktree, detachedWorktree))
 
-        assertEquals(listOf("Worktree id", "branch name", "location"), panel.columnNamesForTests())
+        assertEquals(listOf("Worktree", "Branch", "Location"), panel.columnNamesForTests())
         assertEquals(3, panel.columnCountForTests())
         assertTrue(panel.isRepositoryRowForTests(0))
         assertEquals("root-feature", panel.tableValueForTests(1, 0))
@@ -96,6 +102,46 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
         assertEquals("/project/root-feature", panel.tableValueForTests(1, 2))
         assertEquals("root-detached", panel.tableValueForTests(2, 0))
         assertEquals("detached", panel.tableValueForTests(2, 1))
+    }
+
+    @Test
+    fun `header controls are ordinary content above the table`() {
+        val repository = gitRepository(rootPath = "/project/root", currentBranchName = "master")
+        val panel = panelWithWorktrees(repository, emptyList())
+        val scrollPane = panel.descendantsForTests().filterIsInstance<JScrollPane>().single()
+        val columnHeaderView = scrollPane.columnHeader?.view
+        val sortButtons = panel.descendantsForTests()
+            .filterIsInstance<JButton>()
+            .filter { it.toolTipText == Gw4iBundle.message("toolwindow.GitWorktrees.sort.button.tooltip") }
+        val filterFields = panel.descendantsForTests().filterIsInstance<JBTextField>()
+
+        assertEquals(3, sortButtons.size)
+        assertEquals(3, filterFields.size)
+        sortButtons.forEach { button ->
+            assertFalse(SwingUtilities.isDescendingFrom(button, columnHeaderView))
+        }
+        filterFields.forEach { field ->
+            assertFalse(SwingUtilities.isDescendingFrom(field, columnHeaderView))
+        }
+    }
+
+    @Test
+    fun `header filter fields and sort buttons drive the visible rows`() {
+        val repository = gitRepository(rootPath = "/project/root", currentBranchName = "master")
+        val alpha = WorktreeInfo(path = "/project/alpha-tree", branchName = "feature/login", isMain = false, isCurrent = false, isLocked = false, isPrunable = false)
+        val beta = WorktreeInfo(path = "/project/beta-tree", branchName = "feature/report", isMain = false, isCurrent = false, isLocked = false, isPrunable = false)
+        val panel = panelWithWorktrees(repository, listOf(beta, alpha))
+        val headerControls = panel.headerControlsForTests()
+
+        headerControls.filterFields.getValue(GitWorktreesPanel.Column.BRANCH_NAME).text = "LOGIN"
+
+        assertEquals(listOf("root", "alpha-tree"), panel.visibleRowLabelsForTests())
+
+        headerControls.filterFields.getValue(GitWorktreesPanel.Column.BRANCH_NAME).text = ""
+        headerControls.sortButtons.getValue(GitWorktreesPanel.Column.WORKTREE_ID).doClick()
+
+        assertEquals("^", headerControls.sortButtons.getValue(GitWorktreesPanel.Column.WORKTREE_ID).text)
+        assertEquals(listOf("root", "alpha-tree", "beta-tree"), panel.visibleRowLabelsForTests())
     }
 
     @Test
@@ -391,6 +437,40 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
             arrayOf(GitRepository::class.java),
             handler,
         ) as GitRepository
+    }
+
+    private data class HeaderControls(
+        val filterFields: Map<GitWorktreesPanel.Column, JBTextField>,
+        val sortButtons: Map<GitWorktreesPanel.Column, JButton>,
+    )
+
+    private fun GitWorktreesPanel.headerControlsForTests(): HeaderControls {
+        val sortButtons = descendantsForTests()
+            .filterIsInstance<JButton>()
+            .filter { it.toolTipText == Gw4iBundle.message("toolwindow.GitWorktrees.sort.button.tooltip") }
+        val filterFields = descendantsForTests().filterIsInstance<JBTextField>()
+
+        assertEquals(3, sortButtons.size)
+        assertEquals(3, filterFields.size)
+
+        return HeaderControls(
+            filterFields = GitWorktreesPanel.Column.entries.zip(filterFields).toMap(),
+            sortButtons = GitWorktreesPanel.Column.entries.zip(sortButtons).toMap(),
+        )
+    }
+
+    private fun Component.descendantsForTests(): List<Component> {
+        val descendants = mutableListOf<Component>()
+
+        fun collect(component: Component) {
+            descendants += component
+            if (component is Container) {
+                component.components.forEach(::collect)
+            }
+        }
+
+        collect(this)
+        return descendants
     }
 
     private class TestVirtualFile(

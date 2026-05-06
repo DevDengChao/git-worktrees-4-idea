@@ -267,8 +267,12 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
         })
 
         val scrollPane = ScrollPaneFactory.createScrollPane(table)
-        scrollPane.setColumnHeaderView(createHeaderPanel())
-        setContent(scrollPane)
+        scrollPane.setColumnHeaderView(null)
+        val contentPanel = JPanel(BorderLayout()).apply {
+            add(createHeaderPanel(), BorderLayout.NORTH)
+            add(scrollPane, BorderLayout.CENTER)
+        }
+        setContent(contentPanel)
     }
 
     private fun createHeaderPanel(): JPanel {
