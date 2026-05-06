@@ -263,6 +263,126 @@ class GitWorktreesOperationsServiceTest : LightPlatform4TestCase() {
     }
 
     @Test
+    fun `test bulk remove deletes branch before cleaning leftover directory`() {
+        val repository = gitRepository(project.basePath!!, currentBranchName = "master")
+        val service = GitWorktreesOperationsService.getInstance(project)
+        val leftoverDirectory = Files.createTempDirectory("gw4i-bulk-leftover-worktree")
+        Files.writeString(leftoverDirectory.resolve("leftover.txt"), "leftover")
+        val events = mutableListOf<String>()
+
+        service.overrideProvidersForTests(
+            repositoriesProvider = { listOf(repository) },
+            worktreesProvider = {
+                events += "list"
+                emptyList()
+            },
+            parentDisposable = testRootDisposable,
+        )
+        service.overrideGitOperationsForTests(
+            removeWorktreeRunner = { _, path ->
+                events += "remove"
+                GitCommandResult(
+                    false,
+                    1,
+                    listOf("error: failed to delete '$path': Directory not empty"),
+                    emptyList(),
+                )
+            },
+            deleteBranchRunner = { _, branch, _ ->
+                events += if (Files.exists(leftoverDirectory)) {
+                    "delete branch $branch before cleanup"
+                } else {
+                    "delete branch $branch after cleanup"
+                }
+                GitCommandResult(false, 0, emptyList(), emptyList())
+            },
+            parentDisposable = testRootDisposable,
+        )
+
+        val result = service.removeWorktreesWithBranchDecision(
+            targets = listOf(
+                BulkRemoveWorktreesTarget(repository, worktree(path = leftoverDirectory.toString(), branchName = "feature")),
+            ),
+            decision = DeleteWorktreeBranchDecision.DELETE_WORKTREE_AND_BRANCH,
+            notifyResult = false,
+        )
+
+        assertEquals(listOf("remove", "delete branch feature before cleanup"), events)
+        assertFalse(Files.exists(leftoverDirectory))
+        assertEquals(1, result.removedWorktrees)
+        assertEquals(1, result.deletedBranches)
+    }
+
+    @Test
+    fun `test bulk remove can defer leftover cleanup`() {
+        val repository = gitRepository(project.basePath!!, currentBranchName = "master")
+        val service = GitWorktreesOperationsService.getInstance(project)
+        val leftoverDirectory = Files.createTempDirectory("gw4i-bulk-deferred-leftover-worktree")
+        Files.writeString(leftoverDirectory.resolve("leftover.txt"), "leftover")
+
+        service.overrideProvidersForTests(
+            repositoriesProvider = { listOf(repository) },
+            worktreesProvider = { emptyList() },
+            parentDisposable = testRootDisposable,
+        )
+        service.overrideGitOperationsForTests(
+            removeWorktreeRunner = { _, path ->
+                GitCommandResult(
+                    false,
+                    1,
+                    listOf("error: failed to delete '$path': Directory not empty"),
+                    emptyList(),
+                )
+            },
+            deleteBranchRunner = { _, _, _ -> GitCommandResult(false, 0, emptyList(), emptyList()) },
+            parentDisposable = testRootDisposable,
+        )
+
+        val result = service.removeWorktreesWithBranchDecision(
+            targets = listOf(
+                BulkRemoveWorktreesTarget(repository, worktree(path = leftoverDirectory.toString(), branchName = "feature")),
+            ),
+            decision = DeleteWorktreeBranchDecision.DELETE_WORKTREE_AND_BRANCH,
+            notifyResult = false,
+            cleanupLeftoversImmediately = false,
+        )
+
+        assertTrue(Files.exists(leftoverDirectory))
+        assertEquals(listOf(leftoverDirectory.toString()), result.leftoverCleanupPaths)
+    }
+
+    @Test
+    fun `test bulk remove refreshes each affected repository once`() {
+        var refreshes = 0
+        val repository = gitRepository(project.basePath!!, currentBranchName = "master") {
+            refreshes++
+        }
+        val service = GitWorktreesOperationsService.getInstance(project)
+
+        service.overrideProvidersForTests(
+            repositoriesProvider = { listOf(repository) },
+            worktreesProvider = { emptyList() },
+            parentDisposable = testRootDisposable,
+        )
+        service.overrideGitOperationsForTests(
+            removeWorktreeRunner = { _, _ -> GitCommandResult(false, 0, emptyList(), emptyList()) },
+            deleteBranchRunner = { _, _, _ -> GitCommandResult(false, 0, emptyList(), emptyList()) },
+            parentDisposable = testRootDisposable,
+        )
+
+        service.removeWorktreesWithBranchDecision(
+            targets = listOf(
+                BulkRemoveWorktreesTarget(repository, worktree(path = "/project/feature", branchName = "feature")),
+                BulkRemoveWorktreesTarget(repository, worktree(path = "/project/bugfix", branchName = "bugfix")),
+            ),
+            decision = DeleteWorktreeBranchDecision.DELETE_WORKTREE_AND_BRANCH,
+            notifyResult = false,
+        )
+
+        assertEquals(1, refreshes)
+    }
+
+    @Test
     fun `test bulk remove ignores main worktrees`() {
         val repository = gitRepository(project.basePath!!, currentBranchName = "master")
         val service = GitWorktreesOperationsService.getInstance(project)
@@ -363,6 +483,7 @@ class GitWorktreesOperationsServiceTest : LightPlatform4TestCase() {
     private fun gitRepository(
         rootPath: String,
         currentBranchName: String?,
+        onUpdate: () -> Unit = {},
     ): GitRepository {
         val root = TestVirtualFile(rootPath)
         val handler = InvocationHandler { proxy, method, args ->
@@ -373,7 +494,7 @@ class GitWorktreesOperationsServiceTest : LightPlatform4TestCase() {
                 "getCurrentBranchName" -> currentBranchName
                 "isFresh" -> false
                 "isDisposed" -> false
-                "update" -> Unit
+                "update" -> onUpdate()
                 "dispose" -> Unit
                 "toLogString" -> rootPath
                 "toString" -> "GitRepository($rootPath)"
