@@ -35,10 +35,6 @@
         <action id="GitWorktrees.ToggleRepositoryCollapsed"
                 class="dev.dengchao.idea.plugin.git.worktrees.actions.ToggleSelectedRepositoryAction"/>
 
-        <action id="GitWorktrees.CheckoutInOtherRepo"
-                class="dev.dengchao.idea.plugin.git.worktrees.actions.CheckoutWorktreeInOtherRepositoryAction">
-        </action>
-
         <group id="GitWorktrees.ToolWindow.Toolbar">
             <reference ref="GitWorktrees.Refresh"/>
             <separator/>
@@ -51,7 +47,6 @@
             <reference ref="GitWorktrees.ToggleRepositoryCollapsed"/>
             <separator/>
             <reference ref="GitWorktrees.Checkout"/>
-            <reference ref="GitWorktrees.CheckoutInOtherRepo"/>
             <reference ref="GitWorktrees.Open"/>
             <separator/>
             <reference ref="GitWorktrees.Remove"/>

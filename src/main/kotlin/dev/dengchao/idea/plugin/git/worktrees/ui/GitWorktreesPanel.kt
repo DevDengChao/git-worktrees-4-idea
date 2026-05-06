@@ -39,13 +39,18 @@ import java.nio.file.Path
 import javax.swing.JButton
 import javax.swing.JComponent
 import javax.swing.JLabel
+import javax.swing.JMenuItem
 import javax.swing.JPanel
+import javax.swing.JPopupMenu
 import javax.swing.JTable
 import javax.swing.ListSelectionModel
+import javax.swing.SwingUtilities
 import javax.swing.SwingConstants
 import javax.swing.Icon
 import javax.swing.event.DocumentEvent
 import javax.swing.event.DocumentListener
+import javax.swing.event.PopupMenuEvent
+import javax.swing.event.PopupMenuListener
 import javax.swing.table.AbstractTableModel
 import javax.swing.table.JTableHeader
 import javax.swing.table.TableColumnModel
@@ -591,6 +596,7 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
 
     companion object {
         private const val DETACHED_BRANCH = "detached"
+        internal const val ACTION_DESCRIPTION_PROPERTY = "action.description"
         private var openWorktreeProject: (Path) -> Unit = { path ->
             ProjectUtil.openOrImport(path)
         }
@@ -610,6 +616,10 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
             return installToolWindowPopup(component)
         }
 
+        internal fun applyDisabledActionTooltipsForTests(component: JComponent) {
+            applyDisabledActionTooltips(component)
+        }
+
         private fun installToolWindowPopup(component: JComponent): PopupHandler? {
             val action = ActionManager.getInstance().getAction(GitWorktreesToolWindowFactory.POPUP_ACTION_GROUP_ID)
             val actionGroup = action as? ActionGroup ?: return null
@@ -617,7 +627,48 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
                 component,
                 actionGroup,
                 GitWorktreesToolWindowFactory.POPUP_ACTION_GROUP_ID,
+                DisabledActionTooltipListener,
             )
+        }
+
+        private object DisabledActionTooltipListener : PopupMenuListener {
+            override fun popupMenuWillBecomeVisible(e: PopupMenuEvent) {
+                val popup = e.source as? JPopupMenu ?: return
+                applyDisabledActionTooltips(popup)
+                SwingUtilities.invokeLater {
+                    applyDisabledActionTooltips(popup)
+                }
+            }
+
+            override fun popupMenuWillBecomeInvisible(e: PopupMenuEvent) = Unit
+
+            override fun popupMenuCanceled(e: PopupMenuEvent) = Unit
+        }
+
+        private fun applyDisabledActionTooltips(component: JComponent) {
+            if (component is JMenuItem) {
+                val description = disabledActionDescription(component)
+                component.toolTipText = description?.takeIf { !component.isEnabled && it.isNotBlank() }
+            }
+            component.components
+                .filterIsInstance<JComponent>()
+                .forEach(::applyDisabledActionTooltips)
+        }
+
+        private fun disabledActionDescription(component: JMenuItem): String? {
+            val clientDescription = component.getClientProperty(ACTION_DESCRIPTION_PROPERTY) as? String
+            if (!clientDescription.isNullOrBlank()) return clientDescription
+
+            var currentClass: Class<*>? = component.javaClass
+            while (currentClass != null) {
+                val field = currentClass.declaredFields.firstOrNull { it.name == "description" }
+                if (field != null) {
+                    field.isAccessible = true
+                    return field.get(component) as? String
+                }
+                currentClass = currentClass.superclass
+            }
+            return null
         }
     }
 
