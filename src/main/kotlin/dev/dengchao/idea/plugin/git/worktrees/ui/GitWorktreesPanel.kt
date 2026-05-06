@@ -10,6 +10,8 @@ import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.DataProvider
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.progress.ProgressIndicator
+import com.intellij.openapi.progress.Task
 import com.intellij.openapi.ui.SimpleToolWindowPanel
 import com.intellij.openapi.util.io.FileUtil
 import com.intellij.ui.ColoredListCellRenderer
@@ -46,17 +48,33 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
 
     fun reload() {
         val selectedPath = selectedWorktree()?.path
+        object : Task.Backgroundable(project, Gw4iBundle.message("GitWorktrees.task.load.worktrees.title"), true) {
+            private var snapshot: List<RepositoryWorktreesSnapshot> = emptyList()
 
+            override fun run(indicator: ProgressIndicator) {
+                snapshot = loadSnapshot()
+            }
+
+            override fun onSuccess() {
+                applySnapshot(snapshot, selectedPath)
+            }
+        }.queue()
+    }
+
+    internal fun reloadSynchronouslyForTests() {
+        applySnapshot(loadSnapshot(), selectedWorktree()?.path)
+    }
+
+    private fun applySnapshot(snapshot: List<RepositoryWorktreesSnapshot>, selectedPath: String?) {
         model.removeAllElements()
-        service.repositories().forEach { repository ->
-            model.addElement(RepositoryItem(repository))
-            service.worktrees(repository).forEach { worktree ->
-                model.addElement(WorkingTreeItem(repository, worktree))
+        snapshot.forEach { repositorySnapshot ->
+            model.addElement(RepositoryItem(repositorySnapshot.repository))
+            repositorySnapshot.worktrees.forEach { worktree ->
+                model.addElement(WorkingTreeItem(repositorySnapshot.repository, worktree))
             }
         }
 
         if (model.isEmpty) return
-
         val targetIndex = (0 until model.size)
             .firstOrNull { index ->
                 val item = model[index] as? WorkingTreeItem ?: return@firstOrNull false
@@ -65,6 +83,12 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
             ?: firstWorktreeIndex()
 
         list.selectedIndex = targetIndex ?: 0
+    }
+
+    private fun loadSnapshot(): List<RepositoryWorktreesSnapshot> {
+        return service.repositories().map { repository ->
+            RepositoryWorktreesSnapshot(repository, service.worktrees(repository))
+        }
     }
 
     internal fun selectRowForTests(index: Int) {
@@ -166,6 +190,11 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
         override val repository: GitRepository,
         val worktree: WorktreeInfo,
     ) : WorktreeListItem
+
+    private data class RepositoryWorktreesSnapshot(
+        val repository: GitRepository,
+        val worktrees: List<WorktreeInfo>,
+    )
 
     private class WorktreeRenderer(private val project: Project) : ColoredListCellRenderer<WorktreeListItem>() {
         override fun customizeCellRenderer(

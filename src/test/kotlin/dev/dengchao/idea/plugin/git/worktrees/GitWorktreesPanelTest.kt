@@ -2,6 +2,7 @@
 package dev.dengchao.idea.plugin.git.worktrees
 
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.testFramework.LightPlatform4TestCase
@@ -128,6 +129,24 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
         assertSame(worktree, panel.getData(GitWorktreesDataKeys.SELECTED_WORKTREE.name))
     }
 
+    @Test
+    fun `constructor loads worktrees outside EDT`() {
+        val repository = gitRepository(rootPath = "/project/root", currentBranchName = "master")
+        var loadedOnEdt = false
+        GitWorktreesOperationsService.getInstance(project).overrideProvidersForTests(
+            repositoriesProvider = { listOf(repository) },
+            worktreesProvider = {
+                loadedOnEdt = ApplicationManager.getApplication().isDispatchThread
+                emptyList()
+            },
+            parentDisposable = testRootDisposable,
+        )
+
+        GitWorktreesPanel(project)
+
+        assertFalse(loadedOnEdt)
+    }
+
     private fun panelWithWorktrees(
         repository: GitRepository,
         worktrees: List<WorktreeInfo>,
@@ -137,7 +156,9 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
             worktreesProvider = { worktrees },
             parentDisposable = testRootDisposable,
         )
-        return GitWorktreesPanel(project)
+        return GitWorktreesPanel(project).apply {
+            reloadSynchronouslyForTests()
+        }
     }
 
     private fun gitRepository(rootPath: String, currentBranchName: String?): GitRepository {
