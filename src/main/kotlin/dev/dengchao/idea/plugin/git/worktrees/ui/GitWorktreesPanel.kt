@@ -152,11 +152,7 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
         list.emptyText.text = Gw4iBundle.message("toolwindow.GitWorktrees.empty")
         list.cellRenderer = WorktreeRenderer(project)
 
-        PopupHandler.installPopupMenu(
-            list,
-            GitWorktreesToolWindowFactory.POPUP_ACTION_GROUP_ID,
-            GitWorktreesToolWindowFactory.POPUP_ACTION_GROUP_ID,
-        )
+        installToolWindowPopup(list)
 
         list.addMouseListener(object : java.awt.event.MouseAdapter() {
             override fun mouseClicked(e: java.awt.event.MouseEvent) {
@@ -246,6 +242,22 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
 
                 null -> Unit
             }
+        }
+    }
+
+    companion object {
+        internal fun installToolWindowPopupForTests(list: JList<*>): PopupHandler? {
+            return installToolWindowPopup(list)
+        }
+
+        private fun installToolWindowPopup(list: JList<*>): PopupHandler? {
+            val action = ActionManager.getInstance().getAction(GitWorktreesToolWindowFactory.POPUP_ACTION_GROUP_ID)
+            val actionGroup = action as? ActionGroup ?: return null
+            return PopupHandler.installPopupMenu(
+                list,
+                actionGroup,
+                GitWorktreesToolWindowFactory.POPUP_ACTION_GROUP_ID,
+            )
         }
     }
 }
