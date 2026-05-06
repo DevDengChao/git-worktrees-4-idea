@@ -43,11 +43,7 @@ class CheckoutSelectedWorktreeAction : DumbAwareAction(
         if (repository == null || worktree == null) return Gw4iBundle.message("action.GitWorktrees.Checkout.disabled.no.selection")
         if (worktree.isCurrent) return Gw4iBundle.message("action.GitWorktrees.Checkout.disabled.current.worktree")
 
-        val branchName = worktree.branchName ?: return Gw4iBundle.message("action.GitWorktrees.Checkout.disabled.detached")
-        if (repository.currentBranchName == branchName) {
-            return Gw4iBundle.message("action.GitWorktrees.Checkout.disabled.branch.current", branchName)
-        }
-
+        worktree.branchName ?: return Gw4iBundle.message("action.GitWorktrees.Checkout.disabled.detached")
         return null
     }
 }

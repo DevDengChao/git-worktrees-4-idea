@@ -110,7 +110,7 @@ class GitWorktreesActionsTest : LightPlatform4TestCase() {
     }
 
     @Test
-    fun `test CheckoutWorktreeInOtherRepositoryAction disabled when branches match`() {
+    fun `test CheckoutWorktreeInOtherRepositoryAction enabled when branches match another worktree`() {
         val action = CheckoutWorktreeInOtherRepositoryAction()
         replaceServiceWithRepositories(gitRepository(currentBranchName = "feature"))
 
@@ -126,12 +126,7 @@ class GitWorktreesActionsTest : LightPlatform4TestCase() {
         val event = actionEvent(worktree)
         action.update(event)
 
-        assertTrue(event.presentation.isVisible)
-        assertFalse(event.presentation.isEnabled)
-        assertEquals(
-            Gw4iBundle.message("action.GitWorktrees.CheckoutInOtherRepo.disabled.branch.current", "feature"),
-            event.presentation.description,
-        )
+        assertTrue(event.presentation.isEnabledAndVisible)
     }
 
     @Test
@@ -203,7 +198,7 @@ class GitWorktreesActionsTest : LightPlatform4TestCase() {
     }
 
     @Test
-    fun `test CheckoutSelectedWorktreeAction visible with disabled hint when branch already current`() {
+    fun `test CheckoutSelectedWorktreeAction enabled when same branch is selected in another worktree`() {
         val action = CheckoutSelectedWorktreeAction()
         val repository = gitRepository(currentBranchName = "feature")
         val worktree = WorktreeInfo(
@@ -218,12 +213,7 @@ class GitWorktreesActionsTest : LightPlatform4TestCase() {
         val event = actionEvent(worktree, repository)
         action.update(event)
 
-        assertTrue(event.presentation.isVisible)
-        assertFalse(event.presentation.isEnabled)
-        assertEquals(
-            Gw4iBundle.message("action.GitWorktrees.Checkout.disabled.branch.current", "feature"),
-            event.presentation.description,
-        )
+        assertTrue(event.presentation.isEnabledAndVisible)
     }
 
     @Test

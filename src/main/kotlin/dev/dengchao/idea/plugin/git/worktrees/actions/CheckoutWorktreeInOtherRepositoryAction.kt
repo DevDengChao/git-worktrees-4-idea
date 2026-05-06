@@ -54,11 +54,7 @@ class CheckoutWorktreeInOtherRepositoryAction : DumbAwareAction() {
         }
         if (worktree.isCurrent) return Gw4iBundle.message("action.GitWorktrees.CheckoutInOtherRepo.disabled.current.worktree")
 
-        val branchName = worktree.branchName
-            ?: return Gw4iBundle.message("action.GitWorktrees.CheckoutInOtherRepo.disabled.detached")
-        if (repository.currentBranchName == branchName) {
-            return Gw4iBundle.message("action.GitWorktrees.CheckoutInOtherRepo.disabled.branch.current", branchName)
-        }
+        worktree.branchName ?: return Gw4iBundle.message("action.GitWorktrees.CheckoutInOtherRepo.disabled.detached")
 
         return null
     }
