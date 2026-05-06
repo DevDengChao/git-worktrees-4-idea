@@ -60,9 +60,9 @@ remoteRobot.find<ComponentFixture>(
     byXpath("//div[@accessiblename='Git Worktrees']")
 )
 
-// 按类名查找
+// 按类名查找 worktree 表格
 remoteRobot.find<ComponentFixture>(
-    byXpath("//div[@class='JBList']")
+    byXpath("//div[@class='JBTable' or @class='JTable']")
 )
 
 // 组合条件查找
@@ -94,7 +94,7 @@ button.click()
 textField.text = "some text"
 
 // 右键菜单
-list.rightClick()
+table.rightClick()
 
 // 执行 JavaScript
 component.callJs("component.getText();")

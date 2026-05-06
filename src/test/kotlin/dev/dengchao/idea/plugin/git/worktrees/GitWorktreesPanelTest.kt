@@ -22,8 +22,7 @@ import org.junit.Test
 class GitWorktreesPanelTest : LightPlatform4TestCase() {
 
     @Test
-    fun `test WorktreeListItem sealed interface hierarchy`() {
-        // Test that the sealed interface pattern works correctly
+    fun `test WorktreeInfo status flags`() {
         val mainWorktree = WorktreeInfo(
             path = project.basePath!!,
             branchName = "master",
@@ -65,6 +64,120 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
         assert(sorted[0].isMain) { "Main worktree should be first" }
         assert(sorted[1].path.contains("alpha")) { "Alpha should come before Zebra" }
         assert(sorted[2].path.contains("zebra")) { "Zebra should be last" }
+    }
+
+    @Test
+    fun `table shows repository group and three worktree columns`() {
+        val repository = gitRepository(rootPath = "/project/root", currentBranchName = "master")
+        val worktree = WorktreeInfo(
+            path = "/project/root-feature",
+            branchName = "feature/login",
+            isMain = false,
+            isCurrent = false,
+            isLocked = false,
+            isPrunable = false,
+        )
+        val detachedWorktree = WorktreeInfo(
+            path = "/project/root-detached",
+            branchName = null,
+            isMain = false,
+            isCurrent = false,
+            isLocked = false,
+            isPrunable = false,
+        )
+
+        val panel = panelWithWorktrees(repository, listOf(worktree, detachedWorktree))
+
+        assertEquals(listOf("Worktree id", "branch name", "location"), panel.columnNamesForTests())
+        assertEquals(3, panel.columnCountForTests())
+        assertTrue(panel.isRepositoryRowForTests(0))
+        assertEquals("root-feature", panel.tableValueForTests(1, 0))
+        assertEquals("feature/login", panel.tableValueForTests(1, 1))
+        assertEquals("/project/root-feature", panel.tableValueForTests(1, 2))
+        assertEquals("root-detached", panel.tableValueForTests(2, 0))
+        assertEquals("detached", panel.tableValueForTests(2, 1))
+    }
+
+    @Test
+    fun `column filters match case-insensitive contains with AND semantics`() {
+        val repository = gitRepository(rootPath = "/project/root", currentBranchName = "master")
+        val alpha = WorktreeInfo(path = "/project/alpha-tree", branchName = "feature/login", isMain = false, isCurrent = false, isLocked = false, isPrunable = false)
+        val beta = WorktreeInfo(path = "/project/beta-tree", branchName = "feature/report", isMain = false, isCurrent = false, isLocked = false, isPrunable = false)
+        val release = WorktreeInfo(path = "/release/alpha-prod", branchName = "release/login", isMain = false, isCurrent = false, isLocked = false, isPrunable = false)
+        val panel = panelWithWorktrees(repository, listOf(alpha, beta, release))
+
+        panel.setFilterForTests(GitWorktreesPanel.Column.WORKTREE_ID, "ALPHA")
+        panel.setFilterForTests(GitWorktreesPanel.Column.BRANCH_NAME, "login")
+        panel.setFilterForTests(GitWorktreesPanel.Column.LOCATION, "/project")
+
+        assertEquals(listOf("root", "alpha-tree"), panel.visibleRowLabelsForTests())
+        assertSame(alpha, panel.getData(GitWorktreesDataKeys.SELECTED_WORKTREE.name))
+    }
+
+    @Test
+    fun `filter hides repository groups without matching worktrees`() {
+        val firstRepository = gitRepository(rootPath = "/project/first", currentBranchName = "master")
+        val secondRepository = gitRepository(rootPath = "/project/second", currentBranchName = "master")
+        val firstWorktree = WorktreeInfo(path = "/project/first/alpha-tree", branchName = "feature/alpha", isMain = false, isCurrent = false, isLocked = false, isPrunable = false)
+        val secondWorktree = WorktreeInfo(path = "/project/second/beta-tree", branchName = "feature/beta", isMain = false, isCurrent = false, isLocked = false, isPrunable = false)
+        val panel = panelWithWorktrees(
+            mapOf(
+                firstRepository to listOf(firstWorktree),
+                secondRepository to listOf(secondWorktree),
+            ),
+        )
+
+        panel.setFilterForTests(GitWorktreesPanel.Column.BRANCH_NAME, "beta")
+
+        assertEquals(listOf("second", "beta-tree"), panel.visibleRowLabelsForTests())
+    }
+
+    @Test
+    fun `multi column sorting applies within repository groups by button priority`() {
+        val firstRepository = gitRepository(rootPath = "/project/first", currentBranchName = "master")
+        val secondRepository = gitRepository(rootPath = "/project/second", currentBranchName = "master")
+        val firstWorktrees = listOf(
+            WorktreeInfo(path = "/project/first/worktree-c", branchName = "feature/zeta", isMain = false, isCurrent = false, isLocked = false, isPrunable = false),
+            WorktreeInfo(path = "/project/first/worktree-a", branchName = "feature/zeta", isMain = false, isCurrent = false, isLocked = false, isPrunable = false),
+            WorktreeInfo(path = "/project/first/worktree-b", branchName = "feature/alpha", isMain = false, isCurrent = false, isLocked = false, isPrunable = false),
+        )
+        val secondWorktrees = listOf(
+            WorktreeInfo(path = "/project/second/worktree-z", branchName = "feature/beta", isMain = false, isCurrent = false, isLocked = false, isPrunable = false),
+            WorktreeInfo(path = "/project/second/worktree-y", branchName = "feature/alpha", isMain = false, isCurrent = false, isLocked = false, isPrunable = false),
+        )
+        val panel = panelWithWorktrees(
+            mapOf(
+                firstRepository to firstWorktrees,
+                secondRepository to secondWorktrees,
+            ),
+        )
+
+        panel.toggleSortForTests(GitWorktreesPanel.Column.BRANCH_NAME)
+        panel.toggleSortForTests(GitWorktreesPanel.Column.WORKTREE_ID)
+
+        assertEquals(
+            listOf("first", "worktree-b", "worktree-a", "worktree-c", "second", "worktree-y", "worktree-z"),
+            panel.visibleRowLabelsForTests(),
+        )
+    }
+
+    @Test
+    fun `sort button cycles ascending descending and disabled`() {
+        val repository = gitRepository(rootPath = "/project/root", currentBranchName = "master")
+        val worktrees = listOf(
+            WorktreeInfo(path = "/project/root/a-tree", branchName = "feature/a", isMain = false, isCurrent = false, isLocked = false, isPrunable = false),
+            WorktreeInfo(path = "/project/root/b-tree", branchName = "feature/b", isMain = false, isCurrent = false, isLocked = false, isPrunable = false),
+        )
+        val panel = panelWithWorktrees(repository, worktrees)
+
+        panel.toggleSortForTests(GitWorktreesPanel.Column.WORKTREE_ID)
+        assertEquals(listOf("root", "a-tree", "b-tree"), panel.visibleRowLabelsForTests())
+
+        panel.toggleSortForTests(GitWorktreesPanel.Column.WORKTREE_ID)
+        assertEquals(listOf("root", "b-tree", "a-tree"), panel.visibleRowLabelsForTests())
+
+        panel.toggleSortForTests(GitWorktreesPanel.Column.WORKTREE_ID)
+        assertEquals(listOf("root", "a-tree", "b-tree"), panel.visibleRowLabelsForTests())
     }
 
     @Test
@@ -238,9 +351,15 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
         repository: GitRepository,
         worktrees: List<WorktreeInfo>,
     ): GitWorktreesPanel {
+        return panelWithWorktrees(mapOf(repository to worktrees))
+    }
+
+    private fun panelWithWorktrees(
+        repositoriesAndWorktrees: Map<GitRepository, List<WorktreeInfo>>,
+    ): GitWorktreesPanel {
         GitWorktreesOperationsService.getInstance(project).overrideProvidersForTests(
-            repositoriesProvider = { listOf(repository) },
-            worktreesProvider = { worktrees },
+            repositoriesProvider = { repositoriesAndWorktrees.keys.toList() },
+            worktreesProvider = { repository -> repositoriesAndWorktrees.getValue(repository) },
             parentDisposable = testRootDisposable,
         )
         return GitWorktreesPanel(project).apply {

@@ -106,14 +106,14 @@ class GitWorktreesFixtureTest {
         // Open Git Worktrees tool window
         openGitWorktreesToolWindow()
         
-        // Verify list shows multiple worktrees
+        // Verify table shows multiple worktrees
         waitFor(Duration.ofSeconds(10)) {
             try {
-                val list = remoteRobot.find<ComponentFixture>(
-                    byXpath("//div[@class='JBList']")
+                val table = remoteRobot.find<ComponentFixture>(
+                    byXpath("//div[@class='JBTable' or @class='JTable']")
                 )
-                // List should contain items
-                list.callJs<String>("component.getModel().getSize()")
+                // Table should contain rows
+                table.callJs<String>("component.getModel().getRowCount()")
                 true
             } catch (_: Exception) {
                 false
@@ -139,12 +139,12 @@ class GitWorktreesFixtureTest {
         waitForIdeToLoad()
         openGitWorktreesToolWindow()
         
-        // Right-click on the list
+        // Right-click on the table
         try {
-            val list = remoteRobot.find<ComponentFixture>(
-                byXpath("//div[@class='JBList']")
+            val table = remoteRobot.find<ComponentFixture>(
+                byXpath("//div[@class='JBTable' or @class='JTable']")
             )
-            list.rightClick()
+            table.rightClick()
             
             // Popup menu should appear
             waitFor(Duration.ofSeconds(3)) {

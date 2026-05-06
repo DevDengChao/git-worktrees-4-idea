@@ -14,32 +14,80 @@ import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.ui.SimpleToolWindowPanel
 import com.intellij.openapi.util.io.FileUtil
-import com.intellij.ui.ColoredListCellRenderer
 import com.intellij.ui.PopupHandler
 import com.intellij.ui.ScrollPaneFactory
-import com.intellij.ui.SimpleTextAttributes
-import com.intellij.ui.components.JBList
+import com.intellij.ui.components.JBTextField
+import com.intellij.ui.table.JBTable
 import com.intellij.util.ui.JBUI
+import com.intellij.util.ui.UIUtil
 import dev.dengchao.idea.plugin.git.worktrees.Gw4iBundle
 import dev.dengchao.idea.plugin.git.worktrees.model.WorktreeInfo
 import dev.dengchao.idea.plugin.git.worktrees.services.GitWorktreesOperationsService
 import git4idea.repo.GitRepository
 import git4idea.repo.GitRepositoryChangeListener
-import git4idea.repo.GitRepositoryManager
+import java.awt.BorderLayout
+import java.awt.Component
+import java.awt.Dimension
+import java.awt.GridLayout
+import java.awt.event.MouseAdapter
+import java.awt.event.MouseEvent
 import java.nio.file.Path
-import javax.swing.DefaultListModel
-import javax.swing.JList
+import javax.swing.BorderFactory
+import javax.swing.JButton
+import javax.swing.JComponent
+import javax.swing.JLabel
+import javax.swing.JPanel
+import javax.swing.JTable
 import javax.swing.ListSelectionModel
+import javax.swing.SwingConstants
+import javax.swing.event.DocumentEvent
+import javax.swing.event.DocumentListener
+import javax.swing.table.AbstractTableModel
+import javax.swing.table.DefaultTableCellRenderer
 
 class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(true, true), DataProvider, Disposable {
 
+    internal enum class Column(
+        val titleKey: String,
+        val filterKey: String,
+    ) {
+        WORKTREE_ID(
+            "toolwindow.GitWorktrees.column.worktree.id",
+            "toolwindow.GitWorktrees.filter.worktree.id",
+        ),
+        BRANCH_NAME(
+            "toolwindow.GitWorktrees.column.branch.name",
+            "toolwindow.GitWorktrees.filter.branch.name",
+        ),
+        LOCATION(
+            "toolwindow.GitWorktrees.column.location",
+            "toolwindow.GitWorktrees.filter.location",
+        );
+
+        fun value(worktree: WorktreeInfo): String {
+            return when (this) {
+                WORKTREE_ID -> worktree.name
+                BRANCH_NAME -> worktree.branchName ?: DETACHED_BRANCH
+                LOCATION -> worktree.path
+            }
+        }
+    }
+
     private val service = GitWorktreesOperationsService.getInstance(project)
-    private val model = DefaultListModel<WorktreeListItem>()
-    private val list = JBList(model)
+    private val tableModel = WorktreesTableModel()
+    private val table = JBTable(tableModel)
+    private val filters = linkedMapOf<Column, String>().apply {
+        Column.entries.forEach { put(it, "") }
+    }
+    private val sortRules = mutableListOf<SortRule>()
+    private val filterFields = mutableMapOf<Column, JBTextField>()
+    private val sortButtons = mutableMapOf<Column, JButton>()
+    private var snapshots: List<RepositoryWorktreesSnapshot> = emptyList()
+    private var visibleRows: List<WorktreeTableRow> = emptyList()
 
     init {
         initToolbar()
-        initList()
+        initTable()
         subscribeToRepositoryUpdates()
         reload()
     }
@@ -66,26 +114,47 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
     }
 
     private fun applySnapshot(snapshot: List<RepositoryWorktreesSnapshot>, selectedPaths: Set<String>) {
-        model.removeAllElements()
-        snapshot.forEach { repositorySnapshot ->
-            model.addElement(RepositoryItem(repositorySnapshot.repository))
-            repositorySnapshot.worktrees.forEach { worktree ->
-                model.addElement(WorkingTreeItem(repositorySnapshot.repository, worktree))
+        snapshots = snapshot
+        rebuildVisibleRows(selectedPaths)
+    }
+
+    private fun rebuildVisibleRows(selectedPaths: Set<String> = selectedWorktrees().map { it.worktree.path }.toSet()) {
+        visibleRows = snapshots.flatMap { repositorySnapshot ->
+            val worktreeRows = repositorySnapshot.worktrees
+                .filter(::matchesFilters)
+                .let(::sortWorktrees)
+                .map { worktree -> WorkingTreeRow(repositorySnapshot.repository, worktree) }
+
+            if (worktreeRows.isEmpty() && hasActiveFilter()) {
+                emptyList()
+            } else {
+                listOf(RepositoryRow(repositorySnapshot.repository)) + worktreeRows
             }
         }
 
-        if (model.isEmpty) return
-        val restoredIndices = (0 until model.size)
-            .filter { index ->
-                val item = model[index] as? WorkingTreeItem ?: return@filter false
-                item.worktree.path in selectedPaths
-            }
+        tableModel.fireTableDataChanged()
+        restoreSelection(selectedPaths)
+    }
 
-        if (restoredIndices.isNotEmpty()) {
-            list.setSelectedIndices(restoredIndices.toIntArray())
+    private fun restoreSelection(selectedPaths: Set<String>) {
+        if (visibleRows.isEmpty()) {
+            table.clearSelection()
+            return
+        }
+
+        val restoredRows = visibleRows.indices.filter { row ->
+            val item = visibleRows[row] as? WorkingTreeRow ?: return@filter false
+            item.worktree.path in selectedPaths
+        }
+
+        table.selectionModel.valueIsAdjusting = true
+        table.clearSelection()
+        if (restoredRows.isNotEmpty()) {
+            restoredRows.forEach { row -> table.addRowSelectionInterval(row, row) }
         } else {
-            list.selectedIndex = firstWorktreeIndex() ?: 0
+            table.setRowSelectionInterval(firstWorktreeIndex() ?: 0, firstWorktreeIndex() ?: 0)
         }
+        table.selectionModel.valueIsAdjusting = false
     }
 
     private fun loadSnapshot(): List<RepositoryWorktreesSnapshot> {
@@ -95,25 +164,55 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
     }
 
     internal fun selectRowForTests(index: Int) {
-        list.selectedIndex = index
+        table.setRowSelectionInterval(index, index)
     }
 
     internal fun selectRowsForTests(vararg indices: Int) {
-        list.setSelectedIndices(indices)
+        table.clearSelection()
+        indices.forEach { index -> table.addRowSelectionInterval(index, index) }
+    }
+
+    internal fun columnCountForTests(): Int = tableModel.columnCount
+
+    internal fun columnNamesForTests(): List<String> {
+        return Column.entries.map { Gw4iBundle.message(it.titleKey) }
+    }
+
+    internal fun tableValueForTests(row: Int, column: Int): String {
+        return tableModel.getValueAt(row, column).toString()
+    }
+
+    internal fun isRepositoryRowForTests(row: Int): Boolean = visibleRows[row] is RepositoryRow
+
+    internal fun visibleRowLabelsForTests(): List<String> {
+        return visibleRows.map { row ->
+            when (row) {
+                is RepositoryRow -> row.presentationName(project)
+                is WorkingTreeRow -> row.worktree.name
+            }
+        }
+    }
+
+    internal fun setFilterForTests(column: Column, value: String) {
+        setFilter(column, value, updateField = true)
+    }
+
+    internal fun toggleSortForTests(column: Column) {
+        toggleSort(column)
     }
 
     fun selectedRepository(): GitRepository? {
-        return singleSelectedItem()?.repository
+        return singleSelectedRow()?.repository
     }
 
     fun selectedWorktree(): WorktreeInfo? {
-        return (singleSelectedItem() as? WorkingTreeItem)?.worktree
+        return (singleSelectedRow() as? WorkingTreeRow)?.worktree
     }
 
     fun selectedWorktrees(): List<GitWorktreesDataKeys.SelectedGitWorktree> {
         val selected = mutableListOf<GitWorktreesDataKeys.SelectedGitWorktree>()
-        list.selectedIndices.forEach { index ->
-            val item = model.getElementAt(index) as? WorkingTreeItem ?: return@forEach
+        table.selectedRows.forEach { row ->
+            val item = visibleRows.getOrNull(row) as? WorkingTreeRow ?: return@forEach
             selected += GitWorktreesDataKeys.SelectedGitWorktree(item.repository, item.worktree)
         }
         return selected
@@ -147,22 +246,80 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
         setToolbar(toolbar.component)
     }
 
-    private fun initList() {
-        list.selectionMode = ListSelectionModel.MULTIPLE_INTERVAL_SELECTION
-        list.emptyText.text = Gw4iBundle.message("toolwindow.GitWorktrees.empty")
-        list.cellRenderer = WorktreeRenderer(project)
+    private fun initTable() {
+        table.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION)
+        table.emptyText.text = Gw4iBundle.message("toolwindow.GitWorktrees.empty")
+        table.setDefaultRenderer(Any::class.java, WorktreeTableCellRenderer())
+        table.setShowGrid(false)
+        table.intercellSpacing = Dimension(0, 0)
+        table.rowHeight = JBUI.scale(24)
+        table.autoResizeMode = JTable.AUTO_RESIZE_SUBSEQUENT_COLUMNS
+        table.tableHeader.reorderingAllowed = false
 
-        installToolWindowPopup(list)
+        installToolWindowPopup(table)
 
-        list.addMouseListener(object : java.awt.event.MouseAdapter() {
-            override fun mouseClicked(e: java.awt.event.MouseEvent) {
+        table.addMouseListener(object : MouseAdapter() {
+            override fun mouseClicked(e: MouseEvent) {
                 if (e.clickCount == 2) {
                     openSelectedWorktree()
                 }
             }
         })
 
-        setContent(ScrollPaneFactory.createScrollPane(list))
+        val scrollPane = ScrollPaneFactory.createScrollPane(table)
+        scrollPane.setColumnHeaderView(createHeaderPanel())
+        setContent(scrollPane)
+    }
+
+    private fun createHeaderPanel(): JPanel {
+        return JPanel(GridLayout(1, Column.entries.size)).apply {
+            border = JBUI.Borders.customLine(UIUtil.getBoundsColor(), 0, 0, 1, 0)
+            Column.entries.forEach { column ->
+                add(createHeaderCell(column))
+            }
+        }
+    }
+
+    private fun createHeaderCell(column: Column): JPanel {
+        val title = JLabel(Gw4iBundle.message(column.titleKey))
+        val sortButton = JButton(sortButtonText(column)).apply {
+            margin = JBUI.insets(0, 4)
+            toolTipText = Gw4iBundle.message("toolwindow.GitWorktrees.sort.button.tooltip")
+            addActionListener {
+                toggleSort(column)
+            }
+        }
+        sortButtons[column] = sortButton
+
+        val labelRow = JPanel(BorderLayout()).apply {
+            isOpaque = false
+            add(title, BorderLayout.CENTER)
+            add(sortButton, BorderLayout.EAST)
+        }
+
+        val filterField = JBTextField().apply {
+            emptyText.text = Gw4iBundle.message(column.filterKey)
+            border = JBUI.Borders.empty(1, 0)
+            document.addDocumentListener(object : DocumentListener {
+                override fun insertUpdate(e: DocumentEvent) = updateFilter()
+                override fun removeUpdate(e: DocumentEvent) = updateFilter()
+                override fun changedUpdate(e: DocumentEvent) = updateFilter()
+
+                private fun updateFilter() {
+                    setFilter(column, text, updateField = false)
+                }
+            })
+        }
+        filterFields[column] = filterField
+
+        return JPanel(BorderLayout()).apply {
+            border = BorderFactory.createCompoundBorder(
+                JBUI.Borders.customLine(UIUtil.getBoundsColor(), 0, 0, 0, 1),
+                JBUI.Borders.empty(2, 4, 2, 4),
+            )
+            add(labelRow, BorderLayout.NORTH)
+            add(filterField, BorderLayout.CENTER)
+        }
     }
 
     private fun subscribeToRepositoryUpdates() {
@@ -183,78 +340,196 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
         }
     }
 
+    private fun matchesFilters(worktree: WorktreeInfo): Boolean {
+        return filters.all { (column, filter) ->
+            val normalizedFilter = filter.trim()
+            normalizedFilter.isEmpty() || column.value(worktree).contains(normalizedFilter, ignoreCase = true)
+        }
+    }
+
+    private fun sortWorktrees(worktrees: List<WorktreeInfo>): List<WorktreeInfo> {
+        if (sortRules.isEmpty()) return worktrees
+
+        return worktrees.sortedWith { left, right ->
+            sortRules.firstNotNullOfOrNull { rule ->
+                val comparison = rule.column.value(left).compareTo(rule.column.value(right), ignoreCase = true)
+                when {
+                    comparison == 0 -> null
+                    rule.direction == SortDirection.ASCENDING -> comparison
+                    else -> -comparison
+                }
+            } ?: 0
+        }
+    }
+
+    private fun hasActiveFilter(): Boolean {
+        return filters.values.any { it.isNotBlank() }
+    }
+
+    private fun setFilter(column: Column, value: String, updateField: Boolean) {
+        if (filters[column] == value) return
+        filters[column] = value
+        if (updateField) {
+            filterFields[column]?.let { field ->
+                if (field.text != value) {
+                    field.text = value
+                }
+            }
+        }
+        rebuildVisibleRows()
+    }
+
+    private fun toggleSort(column: Column) {
+        val existingIndex = sortRules.indexOfFirst { it.column == column }
+        if (existingIndex < 0) {
+            sortRules += SortRule(column, SortDirection.ASCENDING)
+        } else {
+            val existingRule = sortRules[existingIndex]
+            when (existingRule.direction) {
+                SortDirection.ASCENDING -> sortRules[existingIndex] = existingRule.copy(direction = SortDirection.DESCENDING)
+                SortDirection.DESCENDING -> sortRules.removeAt(existingIndex)
+            }
+        }
+        updateSortButtons()
+        rebuildVisibleRows()
+    }
+
+    private fun updateSortButtons() {
+        Column.entries.forEach { column ->
+            sortButtons[column]?.text = sortButtonText(column)
+        }
+    }
+
+    private fun sortButtonText(column: Column): String {
+        return when (sortRules.firstOrNull { it.column == column }?.direction) {
+            SortDirection.ASCENDING -> "^"
+            SortDirection.DESCENDING -> "v"
+            null -> "-"
+        }
+    }
+
     private fun firstWorktreeIndex(): Int? {
-        return (0 until model.size).firstOrNull { index -> model[index] is WorkingTreeItem }
+        return visibleRows.indices.firstOrNull { index -> visibleRows[index] is WorkingTreeRow }
     }
 
-    private fun singleSelectedItem(): WorktreeListItem? {
-        val selectedIndices = list.selectedIndices
-        if (selectedIndices.size != 1) return null
-        return model.getElementAt(selectedIndices.single())
+    private fun singleSelectedRow(): WorktreeTableRow? {
+        val selectedRows = table.selectedRows
+        if (selectedRows.size != 1) return null
+        return visibleRows.getOrNull(selectedRows.single())
     }
 
-    private sealed interface WorktreeListItem {
+    private sealed interface WorktreeTableRow {
         val repository: GitRepository
     }
 
-    private data class RepositoryItem(override val repository: GitRepository) : WorktreeListItem {
+    private data class RepositoryRow(override val repository: GitRepository) : WorktreeTableRow {
         fun presentationName(project: Project): String {
             val basePath = project.basePath ?: return repository.root.name
             val relativePath = FileUtil.getRelativePath(basePath, repository.root.path, '/')
             return relativePath?.takeIf { it.isNotBlank() && it != "." } ?: repository.root.name
         }
+
+        fun presentationLocation(): String {
+            return FileUtil.getLocationRelativeToUserHome(repository.root.path)
+        }
     }
 
-    private data class WorkingTreeItem(
+    private data class WorkingTreeRow(
         override val repository: GitRepository,
         val worktree: WorktreeInfo,
-    ) : WorktreeListItem
+    ) : WorktreeTableRow
 
     private data class RepositoryWorktreesSnapshot(
         val repository: GitRepository,
         val worktrees: List<WorktreeInfo>,
     )
 
-    private class WorktreeRenderer(private val project: Project) : ColoredListCellRenderer<WorktreeListItem>() {
-        override fun customizeCellRenderer(
-            list: JList<out WorktreeListItem?>,
-            value: WorktreeListItem?,
-            index: Int,
-            selected: Boolean,
+    private data class SortRule(
+        val column: Column,
+        val direction: SortDirection,
+    )
+
+    private enum class SortDirection {
+        ASCENDING,
+        DESCENDING,
+    }
+
+    private inner class WorktreesTableModel : AbstractTableModel() {
+        override fun getRowCount(): Int = visibleRows.size
+
+        override fun getColumnCount(): Int = Column.entries.size
+
+        override fun getColumnName(column: Int): String {
+            return Gw4iBundle.message(Column.entries[column].titleKey)
+        }
+
+        override fun getValueAt(rowIndex: Int, columnIndex: Int): Any {
+            return when (val row = visibleRows[rowIndex]) {
+                is RepositoryRow -> {
+                    if (columnIndex == 0) {
+                        "${row.presentationName(project)}  ${row.presentationLocation()}"
+                    } else {
+                        ""
+                    }
+                }
+                is WorkingTreeRow -> Column.entries[columnIndex].value(row.worktree)
+            }
+        }
+
+        override fun isCellEditable(rowIndex: Int, columnIndex: Int): Boolean = false
+    }
+
+    private inner class WorktreeTableCellRenderer : DefaultTableCellRenderer() {
+        override fun getTableCellRendererComponent(
+            table: JTable,
+            value: Any?,
+            isSelected: Boolean,
             hasFocus: Boolean,
-        ) {
-            when (value) {
-                is RepositoryItem -> {
-                    icon = AllIcons.Nodes.Folder
-                    append(value.presentationName(project), SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES)
-                    append("  ")
-                    append(FileUtil.getLocationRelativeToUserHome(value.repository.root.path), SimpleTextAttributes.GRAY_ATTRIBUTES)
-                    border = JBUI.Borders.empty(2, 4, 2, 4)
-                }
+            row: Int,
+            column: Int,
+        ): Component {
+            val component = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column) as JLabel
 
-                is WorkingTreeItem -> {
-                    icon = if (value.worktree.isCurrent) AllIcons.Actions.Checked else AllIcons.Empty
-                    append(value.worktree.name, if (value.worktree.isMain) SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES else SimpleTextAttributes.REGULAR_ATTRIBUTES)
-                    append("  ")
-                    append(value.worktree.branchName ?: "detached", SimpleTextAttributes.GRAY_ATTRIBUTES)
-                    border = JBUI.Borders.empty(2, 16, 2, 4)
-                }
+            component.border = JBUI.Borders.empty(0, if (column == 0) 8 else 4, 0, 4)
+            component.horizontalAlignment = SwingConstants.LEFT
+            component.icon = null
+            component.font = table.font
 
+            val item = visibleRows.getOrNull(row)
+            when (item) {
+                is RepositoryRow -> {
+                    component.font = table.font.deriveFont(java.awt.Font.BOLD)
+                    component.icon = if (column == 0) AllIcons.Nodes.Folder else null
+                    if (column != 0) {
+                        component.text = ""
+                    }
+                }
+                is WorkingTreeRow -> {
+                    if (column == 0) {
+                        component.icon = if (item.worktree.isCurrent) AllIcons.Actions.Checked else AllIcons.Empty
+                        if (item.worktree.isMain) {
+                            component.font = table.font.deriveFont(java.awt.Font.BOLD)
+                        }
+                    }
+                }
                 null -> Unit
             }
+            return component
         }
     }
 
     companion object {
-        internal fun installToolWindowPopupForTests(list: JList<*>): PopupHandler? {
-            return installToolWindowPopup(list)
+        private const val DETACHED_BRANCH = "detached"
+
+        internal fun installToolWindowPopupForTests(component: JComponent): PopupHandler? {
+            return installToolWindowPopup(component)
         }
 
-        private fun installToolWindowPopup(list: JList<*>): PopupHandler? {
+        private fun installToolWindowPopup(component: JComponent): PopupHandler? {
             val action = ActionManager.getInstance().getAction(GitWorktreesToolWindowFactory.POPUP_ACTION_GROUP_ID)
             val actionGroup = action as? ActionGroup ?: return null
             return PopupHandler.installPopupMenu(
-                list,
+                component,
                 actionGroup,
                 GitWorktreesToolWindowFactory.POPUP_ACTION_GROUP_ID,
             )

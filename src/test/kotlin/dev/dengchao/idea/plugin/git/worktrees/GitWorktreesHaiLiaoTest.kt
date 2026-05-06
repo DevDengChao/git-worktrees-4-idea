@@ -139,9 +139,9 @@ class GitWorktreesHaiLiaoTest {
         // After opening tool window, verify list or empty text
         waitFor(Duration.ofSeconds(5)) {
             try {
-                // Either shows list of worktrees
+                // Either shows table of worktrees
                 remoteRobot.find<ComponentFixture>(
-                    byXpath("//div[@class='JBList']")
+                    byXpath("//div[@class='JBTable' or @class='JTable']")
                 )
                 true
             } catch (_: Exception) {

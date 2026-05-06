@@ -3,10 +3,10 @@ package dev.dengchao.idea.plugin.git.worktrees
 import com.intellij.openapi.actionSystem.ActionGroup
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.testFramework.LightPlatform4TestCase
-import com.intellij.ui.components.JBList
 import dev.dengchao.idea.plugin.git.worktrees.ui.GitWorktreesPanel
 import dev.dengchao.idea.plugin.git.worktrees.ui.GitWorktreesToolWindowFactory
 import java.util.function.Function
+import javax.swing.JTable
 import org.junit.Test
 
 class GitWorktreesToolWindowFactoryTest : LightPlatform4TestCase() {
@@ -29,12 +29,12 @@ class GitWorktreesToolWindowFactoryTest : LightPlatform4TestCase() {
     @Test
     fun `test tool window popup is installed with resolved action group`() {
         val action = ActionManager.getInstance().getAction(GitWorktreesToolWindowFactory.POPUP_ACTION_GROUP_ID) as ActionGroup
-        val list = JBList<Any>()
+        val table = JTable()
 
-        val handler = GitWorktreesPanel.installToolWindowPopupForTests(list)
+        val handler = GitWorktreesPanel.installToolWindowPopupForTests(table)
 
         assertNotNull(handler)
-        assertTrue(list.mouseListeners.contains(handler))
+        assertTrue(table.mouseListeners.contains(handler))
         assertSame(action, capturedActionGroup(handler!!, null))
     }
 
