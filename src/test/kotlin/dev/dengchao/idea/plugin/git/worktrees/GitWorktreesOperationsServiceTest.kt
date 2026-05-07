@@ -111,6 +111,14 @@ class GitWorktreesOperationsServiceTest : LightPlatform4TestCase() {
     }
 
     @Test
+    fun `test delete worktree and branch dialog button text`() {
+        assertEquals(
+            "Delete Worktree and Branch",
+            Gw4iBundle.message("GitWorktrees.dialog.remove.worktree.used.branch.delete.both"),
+        )
+    }
+
+    @Test
     fun `test removeWorktreeWithBranchDecision does not ask for branch decision again`() {
         val repository = gitRepository(project.basePath!!, currentBranchName = "master")
         val service = GitWorktreesOperationsService.getInstance(project)
