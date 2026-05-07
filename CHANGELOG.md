@@ -1,8 +1,14 @@
 <!-- Keep a Changelog guide -> https://keepachangelog.com -->
 
-# Git Worktrees Changelog
+# Git Worktrees | GW4I Changelog
 
 ## [Unreleased]
+
+## [1.1.0] - 2026-05-07
+
+### Changed
+
+- Rename the Marketplace plugin display name to `Git Worktrees | GW4I` to avoid a Marketplace name collision while keeping the existing plugin ID, tool window, and in-IDE Worktrees entry stable.
 
 ## [1.0.0] - 2026-05-07
 

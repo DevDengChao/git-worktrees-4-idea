@@ -1,4 +1,4 @@
-# Git Worktrees Marketing Copy
+# Git Worktrees | GW4I Marketing Copy
 
 This file keeps the English and Chinese copy together so the same material can be reused for README, JetBrains Marketplace, release notes, and external posts.
 
@@ -8,7 +8,7 @@ This file keeps the English and Chinese copy together so the same material can b
 
 ![Git Worktrees overview](screenshots/00-overview.png)
 
-Git Worktrees brings linked worktree management into the Git tool window. It gives teams a single table for checking which worktrees exist, which branch each one uses, and where each checkout lives on disk.
+Git Worktrees | GW4I brings linked worktree management into the Git tool window. It gives teams a single table for checking which worktrees exist, which branch each one uses, and where each checkout lives on disk.
 
 ### UI Navigation
 
@@ -72,7 +72,7 @@ Manage linked Git worktrees directly from IntelliJ IDEA: browse all roots, filte
 
 ![Git Worktrees 概览](screenshots/00-overview.png)
 
-Git Worktrees 把 linked worktree 管理放进 Git 工具窗口。团队可以在一张表里看到当前有哪些 worktree、每个 worktree 对应哪个分支，以及它们分别位于哪个磁盘路径。
+Git Worktrees | GW4I 把 linked worktree 管理放进 Git 工具窗口。团队可以在一张表里看到当前有哪些 worktree、每个 worktree 对应哪个分支，以及它们分别位于哪个磁盘路径。
 
 ### 界面入口
 

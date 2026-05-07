@@ -1,11 +1,11 @@
-# Git Worktrees
+# Git Worktrees | GW4I
 
 <!-- Plugin description -->
 ## English
 
 Manage linked Git worktrees from inside IntelliJ IDEA.
 
-**Git Worktrees** adds a focused Worktrees tab to the Git tool window, so you can see every linked worktree across one or many Git roots without leaving the IDE.
+**Git Worktrees | GW4I** adds a focused Worktrees tab to the Git tool window, so you can see every linked worktree across one or many Git roots without leaving the IDE.
 
 ![Git Worktrees overview](design/marketing/screenshots/00-overview.png)
 
@@ -81,7 +81,7 @@ Repository rows keep large projects organized. Each Git root has its own worktre
 
 在 IntelliJ IDEA 里集中查看、过滤、切换和删除 Git worktree。
 
-**Git Worktrees** 会在 Git 工具窗口中加入一个专门的 Worktrees 标签页，让你不用离开 IDE，就能查看一个或多个 Git root 下的全部 linked worktree。
+**Git Worktrees | GW4I** 会在 Git 工具窗口中加入一个专门的 Worktrees 标签页，让你不用离开 IDE，就能查看一个或多个 Git root 下的全部 linked worktree。
 
 ![Git Worktrees 概览](design/marketing/screenshots/00-overview.png)
 
