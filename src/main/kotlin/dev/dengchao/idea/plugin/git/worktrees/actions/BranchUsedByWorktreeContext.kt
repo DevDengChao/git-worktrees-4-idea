@@ -1,13 +1,11 @@
 package dev.dengchao.idea.plugin.git.worktrees.actions
 
 import com.intellij.openapi.actionSystem.AnActionEvent
-import com.intellij.vcs.git.shared.actions.GitSingleRefActions
 import com.intellij.vcs.log.VcsLogDataKeys
 import com.intellij.vcs.log.VcsRef
 import dev.dengchao.idea.plugin.git.worktrees.model.WorktreeInfo
 import dev.dengchao.idea.plugin.git.worktrees.services.GitWorktreesOperationsService
 import git4idea.GitLocalBranch
-import git4idea.actions.branch.GitBranchActionsDataKeys
 import git4idea.log.GitRefManager
 import git4idea.repo.GitRepository
 
@@ -21,9 +19,9 @@ internal object BranchUsedByWorktreeContextResolver {
 
     fun fromBranchPopupEvent(e: AnActionEvent): BranchUsedByWorktreeContext? {
         val project = e.project ?: return null
-        val branch = e.getData(GitSingleRefActions.SELECTED_REF_DATA_KEY) as? GitLocalBranch ?: return null
-        val repository = e.getData(GitBranchActionsDataKeys.SELECTED_REPOSITORY)
-            ?: e.getData(GitBranchActionsDataKeys.AFFECTED_REPOSITORIES)?.singleOrNull()
+        val branch = e.getData(GitBranchActionDataKeys.SELECTED_REF) as? GitLocalBranch ?: return null
+        val repository = e.getData(GitBranchActionDataKeys.SELECTED_REPOSITORY)
+            ?: e.getData(GitBranchActionDataKeys.AFFECTED_REPOSITORIES)?.singleOrNull()
             ?: return null
         return find(projectService = GitWorktreesOperationsService.getInstance(project), repository, branch.name)
     }
