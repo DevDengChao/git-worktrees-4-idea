@@ -179,7 +179,6 @@ class GitLogWorktreeActionsTest : LightPlatform4TestCase() {
                 "decision $branchName $worktreePath",
                 "task ${Gw4iBundle.message("GitWorktrees.task.remove.worktree.title")}",
                 "remove $worktreePath",
-                "refresh",
                 "delete $branchName force=true",
                 "refresh",
             ),
