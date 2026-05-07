@@ -21,8 +21,13 @@
 - Add Open support for opening a selected worktree as an IDE project.
 - Add single and bulk Delete Worktree support, including optional branch deletion and main worktree protection.
 - Add Git Branch menu integrations for branches already used by another worktree: Checkout Anyway and Delete Branch / Worktree.
+- Add Git Log branch-label menu integrations so Checkout and Delete Branch can handle branches that are already used by linked worktrees, including branch names with `/`.
+- Add runtime wrapping for native Git Branch checkout/delete actions only when a branch is used by another worktree, keeping ordinary branch actions unchanged.
+- Add Git metadata and action data based worktree conflict resolution for branch menus, avoiding full worktree listing during menu updates.
+- Add a `By GW4I` secondary marker to the Git menu entry and a compact provider note in the Worktrees panel toolbar.
 - Run checkout and delete operations in background tasks and report success or failure through IDE notifications.
 - Batch bulk worktree deletion and defer best-effort leftover directory cleanup to reduce visible delete time on Windows.
+- Defer leftover directory cleanup for single worktree deletion after Git unregisters the worktree, so branch deletion and repository refresh finish before best-effort physical cleanup.
 - Add JetBrains plugin icons, New UI tool window icons, marketing screenshots, and bilingual English/Chinese README and Marketplace copy.
 
 ### Changed
