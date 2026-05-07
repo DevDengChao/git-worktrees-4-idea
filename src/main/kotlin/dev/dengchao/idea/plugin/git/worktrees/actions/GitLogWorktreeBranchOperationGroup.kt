@@ -5,6 +5,7 @@ import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.ActionWithDelegate
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.actionSystem.DataSnapshotProvider
 import com.intellij.openapi.actionSystem.ex.ActionUtil
 import com.intellij.openapi.project.DumbAware
 import com.intellij.openapi.project.DumbAwareAction
@@ -70,8 +71,10 @@ class GitLogWorktreeBranchOperationGroup private constructor(
         e: AnActionEvent?,
     ): AnAction {
         val actionText = action.templatePresentation.text.orEmpty()
-        val context = currentContext ?: findContextForBranchGroup(actionText, contexts)
-        if (context != null && isNativeDeleteBranchAction(action)) {
+        val context = currentContext
+            ?: findContextForActionSnapshot(action, e)
+            ?: findContextForBranchGroup(actionText, contexts)
+        if (context != null && isDeleteBranchAction(action)) {
             return DeleteLinkedWorktreeBranchAction(context)
         }
 
@@ -83,9 +86,17 @@ class GitLogWorktreeBranchOperationGroup private constructor(
         )
     }
 
-    private fun isNativeDeleteBranchAction(action: AnAction): Boolean {
+    private fun isDeleteBranchAction(action: AnAction): Boolean {
         val rootAction = ActionUtil.getDelegateChainRootAction(action)
         return rootAction.javaClass.name == "git4idea.actions.ref.GitDeleteRefAction"
+    }
+
+    private fun findContextForActionSnapshot(
+        action: AnAction,
+        e: AnActionEvent?,
+    ): BranchUsedByWorktreeContext? {
+        return (action as? DataSnapshotProvider)
+            ?.let { BranchUsedByWorktreeContextResolver.fromActionSnapshot(e, it) }
     }
 
     private fun findContextForBranchGroup(

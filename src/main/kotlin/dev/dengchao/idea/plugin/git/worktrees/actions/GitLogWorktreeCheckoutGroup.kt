@@ -11,6 +11,7 @@ import com.intellij.openapi.project.DumbAware
 import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.vcs.log.VcsLogDataKeys
 import dev.dengchao.idea.plugin.git.worktrees.services.GitWorktreesOperationsService
+import git4idea.GitReference
 import git4idea.branch.GitBrancher
 import git4idea.i18n.GitBundle
 import git4idea.log.GitRefManager
@@ -89,12 +90,42 @@ class GitLogWorktreeCheckoutGroup private constructor(
         contexts: Map<String, BranchUsedByWorktreeContext>,
         e: AnActionEvent?,
     ): AnAction {
-        val context = contexts[action.templatePresentation.text.orEmpty()]
+        val context = checkoutContextForAction(action, contexts)
         if (context != null) return CheckoutLinkedWorktreeBranchAction(context)
 
         if (action !is ActionGroup) return action
 
         return copyGroup(action, action.getChildren(e).map { replaceCheckoutAction(it, contexts, e) })
+    }
+
+    private fun checkoutContextForAction(
+        action: AnAction,
+        contexts: Map<String, BranchUsedByWorktreeContext>,
+    ): BranchUsedByWorktreeContext? {
+        return checkoutBranchNames(action)
+            .firstNotNullOfOrNull { contexts[it] }
+    }
+
+    private fun checkoutBranchNames(action: AnAction): Sequence<String> {
+        val actionText = action.templatePresentation.text.orEmpty()
+        return sequence {
+            yield(actionText)
+            reflectBranchName(action)?.let { yield(it) }
+        }
+    }
+
+    private fun reflectBranchName(action: AnAction): String? {
+        val rootAction = ActionUtil.getDelegateChainRootAction(action)
+        return sequenceOf("hashOrRefName", "branchName", "myBranchName", "refName")
+            .mapNotNull { rootAction.readFieldValue(it) }
+            .mapNotNull { value ->
+                when (value) {
+                    is String -> value
+                    is GitReference -> value.name
+                    else -> null
+                }
+            }
+            .firstOrNull()
     }
 }
 
@@ -145,4 +176,19 @@ internal fun copyGroup(
     group.templatePresentation.description = original.templatePresentation.description
     group.templatePresentation.icon = original.templatePresentation.icon
     return group
+}
+
+internal fun Any.readFieldValue(fieldName: String): Any? {
+    var current: Class<*>? = javaClass
+    while (current != null) {
+        val field = runCatching { current.getDeclaredField(fieldName) }.getOrNull()
+        if (field != null) {
+            return runCatching {
+                field.isAccessible = true
+                field.get(this)
+            }.getOrNull()
+        }
+        current = current.superclass
+    }
+    return null
 }
