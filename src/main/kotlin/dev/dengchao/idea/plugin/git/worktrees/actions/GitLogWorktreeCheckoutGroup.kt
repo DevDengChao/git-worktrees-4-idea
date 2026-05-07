@@ -158,11 +158,7 @@ internal class CheckoutLinkedWorktreeBranchAction(
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.BGT
 
     override fun actionPerformed(e: AnActionEvent) {
-        val project = context.repository.project
-        val service = GitWorktreesOperationsService.getInstance(project)
-        if (!service.askCheckoutUsedByWorktreeConfirmation(context.branchName, context.worktree.path)) return
-
-        service.checkoutBranchIgnoringOtherWorktreesAsync(context.repository, context.branchName)
+        GitWorktreesBranchActions.checkout(context)
     }
 }
 

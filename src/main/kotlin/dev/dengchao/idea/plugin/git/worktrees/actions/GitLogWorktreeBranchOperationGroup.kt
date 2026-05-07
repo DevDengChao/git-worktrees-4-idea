@@ -11,7 +11,6 @@ import com.intellij.openapi.project.DumbAware
 import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.vcs.log.VcsLogDataKeys
 import dev.dengchao.idea.plugin.git.worktrees.Gw4iBundle
-import dev.dengchao.idea.plugin.git.worktrees.services.DeleteWorktreeBranchDecision
 import dev.dengchao.idea.plugin.git.worktrees.services.GitWorktreesOperationsService
 import git4idea.repo.GitRepository
 import git4idea.ui.branch.GitLogBranchOperationsActionGroup
@@ -123,15 +122,6 @@ internal class DeleteLinkedWorktreeBranchAction(
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.BGT
 
     override fun actionPerformed(e: AnActionEvent) {
-        val service = GitWorktreesOperationsService.getInstance(context.repository.project)
-        val decision = service.askBranchDeletionDecision(context.branchName, context.worktree.path)
-        if (decision == DeleteWorktreeBranchDecision.CANCEL) return
-
-        service.removeWorktreeWithBranchDecisionAsync(
-            context.repository,
-            context.branchName,
-            context.worktree.path,
-            decision,
-        )
+        GitWorktreesBranchActions.delete(context)
     }
 }
