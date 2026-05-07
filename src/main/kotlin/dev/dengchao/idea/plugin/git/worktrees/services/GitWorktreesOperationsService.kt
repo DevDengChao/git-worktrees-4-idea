@@ -358,25 +358,45 @@ class GitWorktreesOperationsService(private val project: Project) {
         worktreePath: String,
         decision: DeleteWorktreeBranchDecision,
         notifyResult: Boolean = true,
+        cleanupLeftoverImmediately: Boolean = true,
     ): Boolean {
         if (decision == DeleteWorktreeBranchDecision.CANCEL) {
             return false
         }
 
-        if (!removeWorktree(repository, worktreePath, notifyResult = false)) {
+        val removalResult = removeWorktreeForBulk(repository, worktreePath)
+        if (!removalResult.removed) {
             return false
         }
 
+        var branchDeleted = false
         if (decision == DeleteWorktreeBranchDecision.DELETE_WORKTREE_AND_BRANCH) {
-            return deleteBranch(repository, branchName, force = true, notifyResult = notifyResult)
+            if (!deleteBranchForBulk(repository, branchName, force = true)) {
+                return false
+            }
+            branchDeleted = true
         }
 
+        refreshRepository(repository)
+        if (cleanupLeftoverImmediately) {
+            cleanupLeftoverWorktrees(listOfNotNull(removalResult.leftoverCleanupPath))
+        } else {
+            cleanupLeftoverWorktreesAsync(listOfNotNull(removalResult.leftoverCleanupPath))
+        }
         if (notifyResult) {
-            VcsNotifier.getInstance(project).notifySuccess(
-                "gw4i.worktree.delete.success",
-                "",
-                Gw4iBundle.message("GitWorktrees.notification.worktree.delete.only.success", worktreePath, branchName),
-            )
+            if (branchDeleted) {
+                VcsNotifier.getInstance(project).notifySuccess(
+                    "gw4i.branch.delete.success",
+                    "",
+                    Gw4iBundle.message("GitWorktrees.notification.branch.delete.success", branchName),
+                )
+            } else {
+                VcsNotifier.getInstance(project).notifySuccess(
+                    "gw4i.worktree.delete.success",
+                    "",
+                    Gw4iBundle.message("GitWorktrees.notification.worktree.delete.only.success", worktreePath, branchName),
+                )
+            }
         }
         return true
     }
@@ -455,7 +475,14 @@ class GitWorktreesOperationsService(private val project: Project) {
         backgroundTaskRunner(
             Gw4iBundle.message("GitWorktrees.task.remove.worktree.title"),
             {
-                removeWorktreeWithBranchDecision(repository, branchName, worktreePath, decision, notifyResult)
+                removeWorktreeWithBranchDecision(
+                    repository,
+                    branchName,
+                    worktreePath,
+                    decision,
+                    notifyResult,
+                    cleanupLeftoverImmediately = false,
+                )
             },
             {
                 afterCompletion()

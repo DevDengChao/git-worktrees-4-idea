@@ -363,6 +363,136 @@ class GitWorktreesOperationsServiceTest : LightPlatform4TestCase() {
     }
 
     @Test
+    fun `test remove worktree with branch decision deletes branch before deferred leftover cleanup`() {
+        val repository = gitRepository(project.basePath!!, currentBranchName = "master")
+        val service = GitWorktreesOperationsService.getInstance(project)
+        val leftoverDirectory = Files.createTempDirectory("gw4i-single-deferred-leftover-worktree")
+        Files.writeString(leftoverDirectory.resolve("leftover.txt"), "leftover")
+        val events = mutableListOf<String>()
+
+        service.overrideProvidersForTests(
+            repositoriesProvider = { listOf(repository) },
+            worktreesProvider = { emptyList() },
+            parentDisposable = testRootDisposable,
+        )
+        service.overrideGitOperationsForTests(
+            removeWorktreeRunner = { _, path ->
+                events += "remove"
+                GitCommandResult(
+                    false,
+                    1,
+                    listOf("error: failed to delete '$path': Directory not empty"),
+                    emptyList(),
+                )
+            },
+            deleteBranchRunner = { _, branch, _ ->
+                events += if (Files.exists(leftoverDirectory)) {
+                    "delete branch $branch before cleanup"
+                } else {
+                    "delete branch $branch after cleanup"
+                }
+                GitCommandResult(false, 0, emptyList(), emptyList())
+            },
+            parentDisposable = testRootDisposable,
+        )
+        service.overrideTaskRunnersForTests(
+            leftoverCleanupRunner = { paths ->
+                events += "cleanup ${paths.single()}"
+                assertTrue(Files.exists(leftoverDirectory))
+            },
+            parentDisposable = testRootDisposable,
+        )
+
+        val result = service.removeWorktreeWithBranchDecision(
+            repository,
+            branchName = "feature",
+            worktreePath = leftoverDirectory.toString(),
+            decision = DeleteWorktreeBranchDecision.DELETE_WORKTREE_AND_BRANCH,
+            notifyResult = false,
+            cleanupLeftoverImmediately = false,
+        )
+
+        assertTrue(result)
+        assertEquals(
+            listOf(
+                "remove",
+                "delete branch feature before cleanup",
+                "cleanup ${leftoverDirectory}",
+            ),
+            events,
+        )
+    }
+
+    @Test
+    fun `test async single remove with branch decision defers leftover cleanup outside visible delete task`() {
+        val repository = gitRepository(project.basePath!!, currentBranchName = "master")
+        val service = GitWorktreesOperationsService.getInstance(project)
+        val leftoverDirectory = Files.createTempDirectory("gw4i-single-async-leftover-worktree")
+        Files.writeString(leftoverDirectory.resolve("leftover.txt"), "leftover")
+        val visibleTaskTitles = mutableListOf<String>()
+        val cleanupRequests = mutableListOf<List<String>>()
+        val events = mutableListOf<String>()
+
+        service.overrideProvidersForTests(
+            repositoriesProvider = { listOf(repository) },
+            worktreesProvider = { emptyList() },
+            parentDisposable = testRootDisposable,
+        )
+        service.overrideGitOperationsForTests(
+            removeWorktreeRunner = { _, path ->
+                events += "remove"
+                GitCommandResult(
+                    false,
+                    1,
+                    listOf("error: failed to delete '$path': Directory not empty"),
+                    emptyList(),
+                )
+            },
+            deleteBranchRunner = { _, branch, _ ->
+                events += "delete branch $branch"
+                GitCommandResult(false, 0, emptyList(), emptyList())
+            },
+            parentDisposable = testRootDisposable,
+        )
+        service.overrideTaskRunnersForTests(
+            backgroundTaskRunner = { title, runTask, onFinished ->
+                visibleTaskTitles += title
+                runTask()
+                events += "visible task finished"
+                onFinished()
+            },
+            leftoverCleanupRunner = { paths ->
+                cleanupRequests += paths
+                events += "cleanup requested"
+            },
+            parentDisposable = testRootDisposable,
+        )
+
+        service.removeWorktreeWithBranchDecisionAsync(
+            repository,
+            branchName = "feature",
+            worktreePath = leftoverDirectory.toString(),
+            decision = DeleteWorktreeBranchDecision.DELETE_WORKTREE_AND_BRANCH,
+            notifyResult = false,
+            afterCompletion = { events += "after completion" },
+        )
+
+        assertEquals(listOf(Gw4iBundle.message("GitWorktrees.task.remove.worktree.title")), visibleTaskTitles)
+        assertEquals(listOf(listOf(leftoverDirectory.toString())), cleanupRequests)
+        assertEquals(
+            listOf(
+                "remove",
+                "delete branch feature",
+                "cleanup requested",
+                "visible task finished",
+                "after completion",
+            ),
+            events,
+        )
+        assertTrue(Files.exists(leftoverDirectory))
+    }
+
+    @Test
     fun `test async bulk remove does not queue visible deleting tasks for leftover cleanup`() {
         val repository = gitRepository(project.basePath!!, currentBranchName = "master")
         val service = GitWorktreesOperationsService.getInstance(project)
