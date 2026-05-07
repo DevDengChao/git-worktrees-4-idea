@@ -508,7 +508,9 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
         fun presentationName(project: Project): String {
             val basePath = project.basePath ?: return repository.root.name
             val relativePath = FileUtil.getRelativePath(basePath, repository.root.path, '/')
-            return relativePath?.takeIf { it.isNotBlank() && it != "." } ?: repository.root.name
+            return relativePath
+                ?.takeIf { it.isNotBlank() && it != "." && it != ".." && !it.startsWith("../") }
+                ?: repository.root.name
         }
 
         fun presentationLocation(): String {

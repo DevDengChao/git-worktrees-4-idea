@@ -1,7 +1,5 @@
 package dev.dengchao.idea.plugin.git.worktrees.model
 
-import java.nio.file.Paths
-
 data class WorktreeInfo(
     val path: String,
     val branchName: String?,
@@ -11,5 +9,11 @@ data class WorktreeInfo(
     val isPrunable: Boolean,
 ) {
     val name: String
-        get() = Paths.get(path).fileName?.toString() ?: path
+        get() {
+            val trimmedPath = path.trimEnd('/', '\\')
+            if (trimmedPath.isEmpty()) return path
+
+            val separatorIndex = maxOf(trimmedPath.lastIndexOf('/'), trimmedPath.lastIndexOf('\\'))
+            return if (separatorIndex >= 0) trimmedPath.substring(separatorIndex + 1) else trimmedPath
+        }
 }
