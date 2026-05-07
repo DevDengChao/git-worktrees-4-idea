@@ -3,8 +3,10 @@ package dev.dengchao.idea.plugin.git.worktrees
 
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.actionSystem.ActionToolbar
 import com.intellij.ui.components.JBTextField
 import com.intellij.ui.speedSearch.SpeedSearchSupply
+import com.intellij.util.ui.UIUtil
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.testFramework.LightPlatform4TestCase
@@ -13,6 +15,7 @@ import dev.dengchao.idea.plugin.git.worktrees.services.GitWorktreesOperationsSer
 import dev.dengchao.idea.plugin.git.worktrees.ui.GitWorktreesDataKeys
 import dev.dengchao.idea.plugin.git.worktrees.ui.GitWorktreesPanel
 import git4idea.repo.GitRepository
+import java.awt.BorderLayout
 import java.awt.Component
 import java.awt.Container
 import java.awt.event.MouseEvent
@@ -130,6 +133,25 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
         filterFields.forEach { field ->
             assertTrue(SwingUtilities.isDescendingFrom(field, table.tableHeader))
         }
+    }
+
+    @Test
+    fun `provider note is shown unobtrusively at toolbar end`() {
+        val repository = gitRepository(rootPath = "/project/root", currentBranchName = "master")
+        val panel = panelWithWorktrees(repository, emptyList())
+        val table = panel.descendantsForTests().filterIsInstance<JTable>().single()
+        val toolbar = panel.descendantsForTests().filterIsInstance<ActionToolbar>().single()
+        val providerNote = panel.descendantsForTests()
+            .filterIsInstance<JLabel>()
+            .single { it.text == Gw4iBundle.message("toolwindow.GitWorktrees.provider.note") }
+        val parent = providerNote.parent
+        val layout = parent.layout as BorderLayout
+
+        assertEquals(BorderLayout.EAST, layout.getConstraints(providerNote))
+        assertEquals(SwingUtilities.HORIZONTAL, toolbar.orientation)
+        assertFalse(SwingUtilities.isDescendingFrom(providerNote, table.tableHeader))
+        assertEquals(UIUtil.getContextHelpForeground(), providerNote.foreground)
+        assertTrue(providerNote.font.size2D < table.font.size2D)
     }
 
     @Test

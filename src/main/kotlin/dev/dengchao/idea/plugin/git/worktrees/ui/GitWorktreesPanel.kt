@@ -275,7 +275,22 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
             false,
         )
         toolbar.targetComponent = this
-        setToolbar(toolbar.component)
+        toolbar.setOrientation(SwingConstants.HORIZONTAL)
+        setToolbar(
+            JPanel(BorderLayout()).apply {
+                isOpaque = false
+                add(toolbar.component, BorderLayout.WEST)
+                add(providerNoteLabel(), BorderLayout.EAST)
+            },
+        )
+    }
+
+    private fun providerNoteLabel(): JLabel {
+        return JLabel(Gw4iBundle.message("toolwindow.GitWorktrees.provider.note")).apply {
+            foreground = UIUtil.getContextHelpForeground()
+            font = UIUtil.getLabelFont(UIUtil.FontSize.SMALL)
+            border = JBUI.Borders.emptyRight(8)
+        }
     }
 
     private fun initTable() {
