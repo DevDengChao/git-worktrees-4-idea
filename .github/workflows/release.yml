@@ -58,6 +58,8 @@ jobs:
 
       # Publish the plugin to JetBrains Marketplace
       - name: Publish Plugin
+        id: publish-plugin
+        continue-on-error: true
         env:
           PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
           CERTIFICATE_CHAIN: ${{ secrets.CERTIFICATE_CHAIN }}
@@ -67,13 +69,18 @@ jobs:
 
       # Upload an artifact as a release asset
       - name: Upload Release Asset
+        if: ${{ always() }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload ${{ github.event.release.tag_name }} ./build/distributions/*
+        run: gh release upload ${{ github.event.release.tag_name }} ./build/distributions/* --clobber
+
+      - name: Fail if publishing failed
+        if: ${{ steps.publish-plugin.outcome == 'failure' }}
+        run: exit 1
 
       # Create a pull request
       - name: Create Pull Request
-        if: ${{ github.event.release.body != '' }}
+        if: ${{ github.event.release.body != '' && steps.publish-plugin.outcome == 'success' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

@@ -106,26 +106,27 @@ class GitLogWorktreeCheckoutGroup private constructor(
             .firstNotNullOfOrNull { contexts[it] }
     }
 
-    private fun checkoutBranchNames(action: AnAction): Sequence<String> {
+    private fun checkoutBranchNames(action: AnAction): List<String> {
         val actionText = action.templatePresentation.text.orEmpty()
-        return sequence {
-            yield(actionText)
-            reflectBranchName(action)?.let { yield(it) }
+        return ArrayList<String>(2).apply {
+            add(actionText)
+            reflectBranchName(action)?.let(::add)
         }
     }
 
     private fun reflectBranchName(action: AnAction): String? {
         val rootAction = ActionUtil.getDelegateChainRootAction(action)
-        return sequenceOf("hashOrRefName", "branchName", "myBranchName", "refName")
-            .mapNotNull { rootAction.readFieldValue(it) }
-            .mapNotNull { value ->
-                when (value) {
-                    is String -> value
-                    is GitReference -> value.name
-                    else -> null
-                }
+        for (fieldName in GIT_REF_FIELD_NAMES) {
+            when (val value = rootAction.readFieldValue(fieldName)) {
+                is String -> return value
+                is GitReference -> return value.name
             }
-            .firstOrNull()
+        }
+        return null
+    }
+
+    private companion object {
+        val GIT_REF_FIELD_NAMES = arrayOf("hashOrRefName", "branchName", "myBranchName", "refName")
     }
 }
 
