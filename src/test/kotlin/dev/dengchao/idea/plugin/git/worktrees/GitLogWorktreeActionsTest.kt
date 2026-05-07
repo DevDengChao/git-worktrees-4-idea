@@ -4,9 +4,13 @@ package dev.dengchao.idea.plugin.git.worktrees
 import com.intellij.openapi.actionSystem.ActionGroup
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.AnAction
+import com.intellij.openapi.actionSystem.AnActionWrapper
 import com.intellij.openapi.actionSystem.CustomizedDataContext
+import com.intellij.openapi.actionSystem.DataSink
+import com.intellij.openapi.actionSystem.DataSnapshotProvider
 import com.intellij.openapi.actionSystem.DataContext
 import com.intellij.openapi.actionSystem.PlatformDataKeys
+import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.testFramework.LightPlatform4TestCase
@@ -26,6 +30,7 @@ import dev.dengchao.idea.plugin.git.worktrees.actions.GitLogWorktreeCheckoutGrou
 import dev.dengchao.idea.plugin.git.worktrees.model.WorktreeInfo
 import dev.dengchao.idea.plugin.git.worktrees.services.DeleteWorktreeBranchDecision
 import dev.dengchao.idea.plugin.git.worktrees.services.GitWorktreesOperationsService
+import git4idea.GitLocalBranch
 import git4idea.commands.GitCommandResult
 import git4idea.log.GitRefManager
 import git4idea.repo.GitRepository
@@ -89,6 +94,42 @@ class GitLogWorktreeActionsTest : LightPlatform4TestCase() {
     }
 
     @Test
+    fun `test Git Log checkout matches slash branch by native action field when text is shortened`() {
+        val events = mutableListOf<String>()
+        val repository = gitRepository(rootPath = "/project/root", currentBranchName = "master") {
+            events += "refresh"
+        }
+        val branchName = "feat/admin-reward-task-query"
+        val worktree = WorktreeInfo(
+            path = "/project/admin-reward-task-query",
+            branchName = branchName,
+            isMain = false,
+            isCurrent = false,
+            isLocked = false,
+            isPrunable = false,
+        )
+        configureService(repository, worktree, events)
+
+        val nativeBranchAction = NativeCheckoutLikeAction(repository, branchName, "admin-reward-task-query")
+        val nativeGroup = TestActionGroup("Checkout", listOf(nativeBranchAction))
+        val children = GitLogWorktreeCheckoutGroup(nativeGroup)
+            .getChildren(logEvent(repository, branchName))
+
+        val checkoutAction = findAction(children, branchName)
+        checkoutAction.actionPerformed(TestActionEvent())
+
+        assertEquals(
+            listOf(
+                "confirm checkout $branchName /project/admin-reward-task-query",
+                "task ${Gw4iBundle.message("GitWorktrees.task.checkout.branch.title")}",
+                "checkout $branchName force=false",
+                "refresh",
+            ),
+            events,
+        )
+    }
+
+    @Test
     fun `test Git Log branch delete action asks worktree deletion decision`() {
         val events = mutableListOf<String>()
         val repository = gitRepository(rootPath = "/project/root", currentBranchName = "master")
@@ -116,6 +157,51 @@ class GitLogWorktreeActionsTest : LightPlatform4TestCase() {
                 "task ${Gw4iBundle.message("GitWorktrees.task.remove.worktree.title")}",
                 "remove /project/feature-tree",
                 "delete feature force=true",
+            ),
+            events,
+        )
+    }
+
+    @Test
+    fun `test Git Log branch delete uses wrapped selected ref data for slash branch`() {
+        val events = mutableListOf<String>()
+        val repository = gitRepository(rootPath = "/project/root", currentBranchName = "master")
+        val branchName = "feat/admin-reward-task-query"
+        val worktree = WorktreeInfo(
+            path = "/project/admin-reward-task-query",
+            branchName = branchName,
+            isMain = false,
+            isCurrent = false,
+            isLocked = false,
+            isPrunable = false,
+        )
+        configureService(repository, worktree, events)
+
+        val nativeBranchGroup = TestActionGroup(
+            text = "admin-reward-task-query",
+            children = listOf(
+                GitDeleteRefLikeDataSnapshotAction(
+                    text = "Delete",
+                    branchName = branchName,
+                    repository = repository,
+                ),
+            ),
+        )
+        val nativeGroup = TestActionGroup("Branches", listOf(nativeBranchGroup))
+        val branchGroup = GitLogWorktreeBranchOperationGroup(nativeGroup)
+            .getChildren(logEvent(repository, branchName))
+            .filterIsInstance<ActionGroup>()
+            .single()
+        val deleteAction = findAction(branchGroup, "Delete Branch / Worktree")
+
+        deleteAction.actionPerformed(TestActionEvent())
+
+        assertEquals(
+            listOf(
+                "decision $branchName /project/admin-reward-task-query",
+                "task ${Gw4iBundle.message("GitWorktrees.task.remove.worktree.title")}",
+                "remove /project/admin-reward-task-query",
+                "delete $branchName force=true",
             ),
             events,
         )
@@ -283,6 +369,16 @@ class GitLogWorktreeActionsTest : LightPlatform4TestCase() {
         error("Action '$text' was not found")
     }
 
+    private fun findAction(actions: Array<AnAction>, text: String): AnAction {
+        actions.forEach { action ->
+            if (action.templatePresentation.text == text) return action
+            if (action is ActionGroup) {
+                runCatching { return findAction(action, text) }
+            }
+        }
+        error("Action '$text' was not found")
+    }
+
     private fun findActionTexts(actions: Array<AnAction>): Set<String> {
         val texts = mutableSetOf<String>()
         actions.forEach { collectActionTexts(it, texts) }
@@ -363,5 +459,44 @@ class GitLogWorktreeActionsTest : LightPlatform4TestCase() {
         }
 
         override fun hashCode(): Int = filePath.hashCode()
+    }
+
+    private class NativeCheckoutLikeAction(
+        @Suppress("unused")
+        private val repository: GitRepository,
+        @Suppress("unused")
+        private val hashOrRefName: String,
+        text: String,
+    ) : DumbAwareAction(text) {
+        override fun actionPerformed(e: com.intellij.openapi.actionSystem.AnActionEvent) = Unit
+    }
+
+    private class TestActionGroup(
+        text: String,
+        private val children: List<AnAction>,
+    ) : ActionGroup(text, true) {
+        override fun getChildren(e: com.intellij.openapi.actionSystem.AnActionEvent?): Array<AnAction> =
+            children.toTypedArray()
+    }
+
+    private class GitDeleteRefLikeDataSnapshotAction(
+        text: String,
+        private val branchName: String,
+        private val repository: GitRepository,
+    ) : AnActionWrapper(git4idea.actions.ref.GitDeleteRefAction()), DataSnapshotProvider {
+        init {
+            templatePresentation.text = text
+        }
+
+        override fun dataSnapshot(sink: DataSink) {
+            sink[dev.dengchao.idea.plugin.git.worktrees.actions.GitBranchActionDataKeys.SELECTED_REF] =
+                GitLocalBranch(branchName)
+            sink[dev.dengchao.idea.plugin.git.worktrees.actions.GitBranchActionDataKeys.SELECTED_REPOSITORY] =
+                repository
+            sink[dev.dengchao.idea.plugin.git.worktrees.actions.GitBranchActionDataKeys.AFFECTED_REPOSITORIES] =
+                listOf(repository)
+        }
+
+        override fun actionPerformed(e: com.intellij.openapi.actionSystem.AnActionEvent) = Unit
     }
 }

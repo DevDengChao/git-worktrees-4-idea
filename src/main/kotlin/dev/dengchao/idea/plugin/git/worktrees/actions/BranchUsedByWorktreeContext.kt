@@ -1,6 +1,8 @@
 package dev.dengchao.idea.plugin.git.worktrees.actions
 
 import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.actionSystem.CustomizedDataContext
+import com.intellij.openapi.actionSystem.DataSnapshotProvider
 import com.intellij.vcs.log.VcsLogDataKeys
 import com.intellij.vcs.log.VcsRef
 import dev.dengchao.idea.plugin.git.worktrees.model.WorktreeInfo
@@ -39,6 +41,20 @@ internal object BranchUsedByWorktreeContextResolver {
             .mapNotNull { find(service, repository, it.name) }
             .distinctBy { it.branchName }
             .toList()
+    }
+
+    fun fromActionSnapshot(
+        e: AnActionEvent?,
+        action: DataSnapshotProvider,
+    ): BranchUsedByWorktreeContext? {
+        if (e == null) return null
+        val project = e.project ?: return null
+        val actionContext = CustomizedDataContext.withSnapshot(e.dataContext, action)
+        val branch = actionContext.getData(GitBranchActionDataKeys.SELECTED_REF) as? GitLocalBranch ?: return null
+        val repository = actionContext.getData(GitBranchActionDataKeys.SELECTED_REPOSITORY)
+            ?: actionContext.getData(GitBranchActionDataKeys.AFFECTED_REPOSITORIES)?.singleOrNull()
+            ?: return null
+        return find(GitWorktreesOperationsService.getInstance(project), repository, branch.name)
     }
 
     private fun find(
