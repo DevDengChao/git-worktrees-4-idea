@@ -47,6 +47,7 @@ class GitLogWorktreeActionsTest : LightPlatform4TestCase() {
         val actionManager = ActionManager.getInstance()
         val originalCheckout = actionManager.getAction("Git.CheckoutGroup")
         val originalBranchOperations = actionManager.getAction("Git.BranchOperationGroup")
+        val originalBranch = actionManager.getAction("Git.Branch")
 
         GitLogWorktreeActionReplacement.resetForTests()
         GitLogWorktreeActionReplacement.installForTests(actionManager)
@@ -54,9 +55,18 @@ class GitLogWorktreeActionsTest : LightPlatform4TestCase() {
         assertTrue(actionManager.getAction("Git.CheckoutGroup") is GitLogWorktreeCheckoutGroup)
         assertTrue(actionManager.getAction("Git.BranchOperationGroup") is GitLogWorktreeBranchOperationGroup)
         assertTrue(actionManager.getAction("Git.Branch") is GitWorktreeBranchActionGroup)
+        assertTrue(
+            actionManager.getAction("Git.Log.ContextMenu.CheckoutBrowse")
+                .findChildByClassName("dev.dengchao.idea.plugin.git.worktrees.actions.GitLogWorktreeCheckoutGroup"),
+        )
+        assertTrue(
+            actionManager.getAction("Git.Log.ContextMenu")
+                .findChildByClassName("dev.dengchao.idea.plugin.git.worktrees.actions.GitLogWorktreeBranchOperationGroup"),
+        )
 
         actionManager.replaceAction("Git.CheckoutGroup", originalCheckout)
         actionManager.replaceAction("Git.BranchOperationGroup", originalBranchOperations)
+        actionManager.replaceAction("Git.Branch", originalBranch)
     }
 
     @Test
@@ -503,6 +513,15 @@ class GitLogWorktreeActionsTest : LightPlatform4TestCase() {
         if (action is ActionGroup) {
             action.getChildren(null).forEach { collectActionTexts(it, texts) }
         }
+    }
+
+    private fun AnAction?.findChildByClassName(className: String): Boolean {
+        if (this == null) return false
+        if (javaClass.name == className) return true
+        if (this is ActionGroup) {
+            return getChildren(null).any { it.findChildByClassName(className) }
+        }
+        return false
     }
 
     private fun gitRepository(
