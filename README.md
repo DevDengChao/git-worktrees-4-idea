@@ -17,7 +17,9 @@ Manage linked Git worktrees from inside IntelliJ IDEA.
 - **Work naturally in multi-root projects.** Repository rows group worktrees from `console`, `api`, `android`, or any other Git root in the project.
 - **Collapse repository groups when you need a tighter view.** Use the chevron, double-click a repository row, or the context menu to hide or show its worktrees.
 - **Open, checkout, refresh, and delete worktrees from the toolbar or context menu.**
-- **Handle branches already used by another worktree.** Extra Git Branch menu actions let you checkout anyway with `--ignore-other-worktrees`, or delete the branch together with its worktree.
+- **Keep normal Git branch workflows worktree-aware.** Git Branch and Git Log branch-label menus can offer Checkout Anyway or Delete Branch / Worktree when a branch is already used by another worktree.
+- **Stay oriented inside the IDE.** The Git menu entry carries a subtle `By GW4I` marker, and the panel shows a small provider note at the toolbar edge.
+- **Keep deletion responsive on Windows.** Git unregisters worktrees first, then leftover non-empty directories are cleaned up as best-effort background work.
 
 ### Screenshots
 
@@ -63,8 +65,12 @@ Repository rows keep large projects organized. Each Git root has its own worktre
 - Delete a single worktree, or delete multiple selected worktrees in one batch.
 - Choose whether to delete only the worktree or delete both the worktree and its branch.
 - Protect main worktrees from delete actions.
+- Replace the native Git Branch checkout/delete actions only when the selected branch is already used by a linked worktree, keeping the regular Git menu behavior for ordinary branches.
+- Enhance Git Log branch-label menus so Checkout and Delete Branch actions handle linked-worktree branches, including branch names with `/`.
+- Resolve Git Log worktree branch conflicts from Git metadata and action data, avoiding slow full worktree listing during menu updates.
+- Mark the Worktrees tab entry with `By GW4I` in the Git menu and show a compact provider note in the panel toolbar.
 - Refresh each affected repository after Git operations and show success or failure notifications.
-- Defer best-effort leftover directory cleanup after bulk deletion, reducing visible task time on Windows.
+- Defer best-effort leftover directory cleanup after single and bulk deletion, reducing visible task time on Windows.
 
 ### Requirements
 
@@ -87,7 +93,9 @@ Repository rows keep large projects organized. Each Git root has its own worktre
 - **自然支持多 root 项目。** `console`、`api`、`android` 等多个 Git root 会按仓库分组展示。
 - **需要更紧凑视图时可以折叠仓库分组。** 可通过左侧箭头、双击仓库行或右键菜单隐藏和展开该仓库下的 worktree。
 - **通过工具栏或右键菜单打开、切换、刷新和删除 worktree。**
-- **处理已被其他 worktree 占用的分支。** Git Branch 菜单会提供 `--ignore-other-worktrees` 切换和“删除分支 / worktree”的入口。
+- **让常用 Git 分支流程感知 worktree。** 当分支已被另一个 worktree 使用时，Git Branch 菜单和 Git Log 分支标签菜单会提供 Checkout Anyway 或 Delete Branch / Worktree。
+- **在 IDE 里清楚标识来源。** Git 菜单入口会显示轻量的 `By GW4I` 标记，面板工具栏边缘也会显示简洁的来源说明。
+- **让 Windows 下的删除操作保持响应。** 先完成 Git unregister，再把残留的非空目录放到后台尽力清理。
 
 ### 截图
 
@@ -133,8 +141,12 @@ Repository rows keep large projects organized. Each Git root has its own worktre
 - 支持删除单个 worktree，也支持一次批量删除多个选中的 worktree。
 - 删除时可选择只删除 worktree，或同时删除 worktree 和对应分支。
 - 主 worktree 不会出现在可删除操作中。
+- 只在选中分支已被 linked worktree 使用时替换原生 Git Branch checkout/delete 动作，普通分支仍保留 IDE 原有行为。
+- 增强 Git Log 分支标签菜单，让 Checkout 和 Delete Branch 能处理 linked-worktree 分支，包括带 `/` 的分支名。
+- 通过 Git metadata 和 action data 解析 Git Log 里的 worktree 分支冲突，避免菜单更新时完整扫描 worktree 列表。
+- 在 Git 菜单的 Worktrees 入口显示 `By GW4I`，并在面板工具栏显示紧凑的来源说明。
 - Git 操作后刷新受影响仓库，并通过通知提示成功或失败。
-- 批量删除后把残留目录清理放到后台尽力执行，降低 Windows 下可见删除任务的等待时间。
+- 单个和批量删除后都把残留目录清理放到后台尽力执行，降低 Windows 下可见删除任务的等待时间。
 
 ### 环境要求
 
