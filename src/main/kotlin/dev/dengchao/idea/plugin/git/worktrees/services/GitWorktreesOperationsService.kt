@@ -127,6 +127,8 @@ class GitWorktreesOperationsService(private val project: Project) {
     private var worktreesProvider: (GitRepository) -> List<WorktreeInfo> = ::defaultWorktrees
     private var branchDeletionDialogProvider: (String, String) -> DeleteWorktreeBranchDecision =
         ::showBranchUsedByWorktreeDialog
+    private var checkoutUsedByWorktreeDialogProvider: (String, String) -> Boolean =
+        ::showBranchUsedByWorktreeCheckoutDialog
     private var checkoutConflictDialogProvider: (String) -> Boolean = ::showCheckoutConflictDialog
     private var checkoutRunner: (GitRepository, String, Boolean) -> CheckoutResult = ::runCheckout
     private var removeWorktreeRunner: (GitRepository, String) -> GitCommandResult = ::runRemoveWorktree
@@ -162,6 +164,16 @@ class GitWorktreesOperationsService(private val project: Project) {
         this.branchDeletionDialogProvider = dialogProvider
         Disposer.register(parentDisposable) {
             this.branchDeletionDialogProvider = ::showBranchUsedByWorktreeDialog
+        }
+    }
+
+    internal fun overrideCheckoutUsedByWorktreeDialogForTests(
+        dialogProvider: (String, String) -> Boolean,
+        parentDisposable: Disposable,
+    ) {
+        this.checkoutUsedByWorktreeDialogProvider = dialogProvider
+        Disposer.register(parentDisposable) {
+            this.checkoutUsedByWorktreeDialogProvider = ::showBranchUsedByWorktreeCheckoutDialog
         }
     }
 
@@ -334,6 +346,10 @@ class GitWorktreesOperationsService(private val project: Project) {
 
     fun askBranchDeletionDecision(branchName: String, worktreePath: String): DeleteWorktreeBranchDecision {
         return branchDeletionDialogProvider(branchName, worktreePath)
+    }
+
+    fun askCheckoutUsedByWorktreeConfirmation(branchName: String, worktreePath: String): Boolean {
+        return checkoutUsedByWorktreeDialogProvider(branchName, worktreePath)
     }
 
     fun removeWorktreeWithBranchDecision(
@@ -533,6 +549,15 @@ class GitWorktreesOperationsService(private val project: Project) {
             Gw4iBundle.message("GitWorktrees.dialog.checkout.worktree.message", branchName),
         )
             .yesText(Gw4iBundle.message("GitWorktrees.dialog.checkout.worktree.yes"))
+            .ask(project)
+    }
+
+    private fun showBranchUsedByWorktreeCheckoutDialog(branchName: String, worktreePath: String): Boolean {
+        return MessageDialogBuilder.yesNo(
+            Gw4iBundle.message("GitWorktrees.dialog.checkout.used.by.worktree.title"),
+            Gw4iBundle.message("GitWorktrees.dialog.checkout.used.by.worktree.message", branchName, worktreePath),
+        )
+            .yesText(Gw4iBundle.message("GitWorktrees.dialog.checkout.used.by.worktree.yes"))
             .ask(project)
     }
 
