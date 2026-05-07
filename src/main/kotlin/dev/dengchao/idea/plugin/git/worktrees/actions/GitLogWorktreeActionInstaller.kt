@@ -44,6 +44,7 @@ internal object GitLogWorktreeActionReplacement {
                 BRANCH_GROUP_ID,
             ) { nativeAction -> GitWorktreeBranchActionGroup(nativeAction) }
             installed = true
+            LOG.info("Installed Git Log worktree action replacements")
         }
     }
 

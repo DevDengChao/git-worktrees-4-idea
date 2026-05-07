@@ -8,12 +8,12 @@
 
     <resource-bundle>messages.Gw4iBundle</resource-bundle>
 
-    <extensions defaultExtensionNs="com.intellij">
-        <applicationListeners>
-            <listener class="dev.dengchao.idea.plugin.git.worktrees.actions.GitLogWorktreeActionInstaller"
-                      topic="com.intellij.ide.AppLifecycleListener"/>
-        </applicationListeners>
+    <applicationListeners>
+        <listener class="dev.dengchao.idea.plugin.git.worktrees.actions.GitLogWorktreeActionInstaller"
+                  topic="com.intellij.ide.AppLifecycleListener"/>
+    </applicationListeners>
 
+    <extensions defaultExtensionNs="com.intellij">
         <toolWindow id="Git Worktrees"
                     factoryClass="dev.dengchao.idea.plugin.git.worktrees.ui.GitWorktreesToolWindowFactory"
                     icon="/icons/toolWindowIcon.svg"
