@@ -6,6 +6,7 @@ import com.intellij.openapi.actionSystem.CustomizedDataContext
 import com.intellij.openapi.actionSystem.DataContext
 import com.intellij.openapi.actionSystem.PlatformDataKeys
 import com.intellij.openapi.actionSystem.Separator
+import com.intellij.openapi.actionSystem.ex.ActionUtil
 import com.intellij.openapi.wm.RegisterToolWindowTask
 import com.intellij.openapi.wm.ToolWindowAnchor
 import com.intellij.openapi.wm.ToolWindowId
@@ -71,6 +72,21 @@ class GitWorktreesToolWindowFactoryTest : LightPlatform4TestCase() {
         assertNotNull(dropdown)
         assertNotNull(showAction)
         assertTrue(dropdown!!.getChildren(null).contains(showAction))
+    }
+
+    @Test
+    fun `test show action exposes GW4I secondary menu text`() {
+        val action = ActionManager.getInstance().getAction("GitWorktrees.ShowToolWindow")
+        val event = TestActionEvent.createTestEvent(CustomizedDataContext.withSnapshot(DataContext.EMPTY_CONTEXT) { sink ->
+            sink[PlatformDataKeys.PROJECT] = project
+        })
+
+        action.update(event)
+
+        assertEquals(
+            Gw4iBundle.message("action.GitWorktrees.ShowToolWindow.secondary.text"),
+            event.presentation.getClientProperty(ActionUtil.SECONDARY_TEXT),
+        )
     }
 
     @Test

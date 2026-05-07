@@ -2,6 +2,7 @@ package dev.dengchao.idea.plugin.git.worktrees.actions
 
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.actionSystem.ex.ActionUtil
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.project.Project
@@ -18,6 +19,10 @@ class ShowGitWorktreesToolWindowAction : DumbAwareAction(
 
     override fun update(e: AnActionEvent) {
         e.presentation.isEnabledAndVisible = e.project != null
+        e.presentation.putClientProperty(
+            ActionUtil.SECONDARY_TEXT,
+            Gw4iBundle.message("action.GitWorktrees.ShowToolWindow.secondary.text"),
+        )
     }
 
     override fun actionPerformed(e: AnActionEvent) {
