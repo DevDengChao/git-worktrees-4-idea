@@ -19,6 +19,7 @@
 - In the table, the left checkmark marks the current repository/worktree location by path. After checking out a linked worktree branch into the current repository location, the checkmark should remain on that current location row while its Branch column updates to the selected branch.
 - Plugin logo files should live at `src/main/resources/META-INF/pluginIcon.svg` and, when needed, `pluginIcon_dark.svg`; JetBrains expects 40x40 SVG icons there. Promotional variants and previews can live under `design/plugin-icons/`.
 - Marketing screenshots and bilingual promotional copy should live under `design/marketing/`. Keep screenshots text-clean when possible, and put English + Chinese copy in the same Markdown file so README and Marketplace material stay reusable.
+- Keep README and `design/marketing/` promotional copy organized as a full English section first, then a full Chinese section. In README, keep the `<!-- Plugin description -->` block around the public user-facing description only, so Marketplace metadata includes the bilingual intro but not development commands.
 - For panel/action/service changes, run the targeted suite with:
   `./gradlew.bat test --tests dev.dengchao.idea.plugin.git.worktrees.GitWorktreesPanelTest --tests dev.dengchao.idea.plugin.git.worktrees.GitWorktreesActionsTest --tests dev.dengchao.idea.plugin.git.worktrees.GitWorktreesOperationsServiceTest`
 - Before merging feature work, run `./gradlew.bat test`.
