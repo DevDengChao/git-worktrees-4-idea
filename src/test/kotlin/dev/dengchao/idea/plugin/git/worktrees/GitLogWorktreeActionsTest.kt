@@ -35,8 +35,11 @@ import git4idea.GitLocalBranch
 import git4idea.commands.GitCommandResult
 import git4idea.log.GitRefManager
 import git4idea.repo.GitRepository
+import java.io.File
 import java.lang.reflect.InvocationHandler
 import java.lang.reflect.Proxy
+import java.nio.file.Files
+import java.nio.file.Path
 import java.util.function.Consumer
 import org.junit.Test
 
@@ -99,6 +102,32 @@ class GitLogWorktreeActionsTest : LightPlatform4TestCase() {
                 "confirm checkout feature /project/feature-tree",
                 "task ${Gw4iBundle.message("GitWorktrees.task.checkout.branch.title")}",
                 "checkout feature force=false",
+                "refresh",
+            ),
+            events,
+        )
+    }
+
+    @Test
+    fun `test Git Log checkout resolves linked worktree branch from git metadata without listing worktrees`() {
+        val events = mutableListOf<String>()
+        val root = createRepositoryMetadataWithWorktree("master", "feat/admin-reward-task-query", "admin-reward-task-query")
+        val repository = gitRepository(rootPath = root.toString().replace(File.separatorChar, '/'), currentBranchName = "master") {
+            events += "refresh"
+        }
+        configureService(repository, worktree = null, events)
+
+        val children = GitLogWorktreeCheckoutGroup()
+            .getChildren(logEvent(repository, "feat/admin-reward-task-query"))
+        val checkoutAction = findAction(children, "feat/admin-reward-task-query")
+
+        checkoutAction.actionPerformed(TestActionEvent())
+
+        assertEquals(
+            listOf(
+                "confirm checkout feat/admin-reward-task-query ${root.resolve(".worktrees/admin-reward-task-query").toString().replace(File.separatorChar, '/')}",
+                "task ${Gw4iBundle.message("GitWorktrees.task.checkout.branch.title")}",
+                "checkout feat/admin-reward-task-query force=false",
                 "refresh",
             ),
             events,
@@ -480,6 +509,24 @@ class GitLogWorktreeActionsTest : LightPlatform4TestCase() {
 
     private fun localBranchRef(repository: GitRepository, branchName: String, hash: Hash): VcsRef {
         return VcsRefImpl(hash, branchName, GitRefManager.LOCAL_BRANCH, repository.root)
+    }
+
+    private fun createRepositoryMetadataWithWorktree(
+        mainBranchName: String,
+        branchName: String,
+        worktreeName: String,
+    ): Path {
+        val root = Files.createTempDirectory("gw4i-log-actions")
+        val gitDir = root.resolve(".git")
+        val worktreePath = root.resolve(".worktrees").resolve(worktreeName)
+        val worktreeMetadata = gitDir.resolve("worktrees").resolve(worktreeName)
+        Files.createDirectories(worktreePath)
+        Files.createDirectories(worktreeMetadata)
+        Files.writeString(gitDir.resolve("HEAD"), "ref: refs/heads/$mainBranchName\n")
+        Files.writeString(worktreeMetadata.resolve("HEAD"), "ref: refs/heads/$branchName\n")
+        Files.writeString(worktreeMetadata.resolve("gitdir"), worktreePath.resolve(".git").toString().replace('\\', '/') + "\n")
+        Files.writeString(worktreeMetadata.resolve("commondir"), "../..\n")
+        return root
     }
 
     private fun findAction(group: ActionGroup, text: String): AnAction {
