@@ -8,7 +8,6 @@ import dev.dengchao.idea.plugin.git.worktrees.model.WorktreeInfo
 import dev.dengchao.idea.plugin.git.worktrees.services.DeleteWorktreeBranchDecision
 import dev.dengchao.idea.plugin.git.worktrees.services.GitWorktreesOperationsService
 import git4idea.GitLocalBranch
-import git4idea.actions.branch.GitBranchActionsDataKeys
 import git4idea.repo.GitRepository
 
 class DeleteBranchUsedByAnotherWorktreeAction : DumbAwareAction(
@@ -40,9 +39,9 @@ class DeleteBranchUsedByAnotherWorktreeAction : DumbAwareAction(
 
     private fun resolveContext(e: AnActionEvent): BranchContext? {
         val project = e.project ?: return null
-        val branch = e.getData(com.intellij.vcs.git.shared.actions.GitSingleRefActions.SELECTED_REF_DATA_KEY) as? GitLocalBranch ?: return null
-        val repository = e.getData(GitBranchActionsDataKeys.SELECTED_REPOSITORY)
-            ?: e.getData(GitBranchActionsDataKeys.AFFECTED_REPOSITORIES)?.singleOrNull()
+        val branch = e.getData(GitBranchActionDataKeys.SELECTED_REF) as? GitLocalBranch ?: return null
+        val repository = e.getData(GitBranchActionDataKeys.SELECTED_REPOSITORY)
+            ?: e.getData(GitBranchActionDataKeys.AFFECTED_REPOSITORIES)?.singleOrNull()
             ?: return null
         if (repository.currentBranchName == branch.name) return null
 

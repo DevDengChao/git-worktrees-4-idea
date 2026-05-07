@@ -12,6 +12,7 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.testFramework.LightPlatform4TestCase
 import com.intellij.testFramework.TestActionEvent
 import dev.dengchao.idea.plugin.git.worktrees.actions.CheckoutSelectedWorktreeAction
+import dev.dengchao.idea.plugin.git.worktrees.actions.GitBranchActionDataKeys
 import dev.dengchao.idea.plugin.git.worktrees.actions.OpenSelectedWorktreeAction
 import dev.dengchao.idea.plugin.git.worktrees.actions.RefreshGitWorktreesAction
 import dev.dengchao.idea.plugin.git.worktrees.actions.RemoveSelectedWorktreeAction
@@ -38,6 +39,13 @@ class GitWorktreesActionsTest : LightPlatform4TestCase() {
         assertSame(AllIcons.Actions.Refresh, RefreshGitWorktreesAction().templatePresentation.icon)
         assertSame(AllIcons.Actions.CheckOut, CheckoutSelectedWorktreeAction().templatePresentation.icon)
         assertSame(AllIcons.Actions.MenuOpen, OpenSelectedWorktreeAction().templatePresentation.icon)
+    }
+
+    @Test
+    fun `test branch menu data keys use stable names across Git plugin packages`() {
+        assertEquals("Git.Selected.Ref", GitBranchActionDataKeys.SELECTED_REF.name)
+        assertEquals("Git.Selected.Repository", GitBranchActionDataKeys.SELECTED_REPOSITORY.name)
+        assertEquals("Git.Repositories", GitBranchActionDataKeys.AFFECTED_REPOSITORIES.name)
     }
 
     @Test
