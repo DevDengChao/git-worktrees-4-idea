@@ -21,6 +21,7 @@ internal object GitLogWorktreeActionReplacement {
 
     private const val CHECKOUT_GROUP_ID = "Git.CheckoutGroup"
     private const val BRANCH_OPERATION_GROUP_ID = "Git.BranchOperationGroup"
+    private const val BRANCH_GROUP_ID = "Git.Branch"
 
     @Volatile
     private var installed = false
@@ -38,6 +39,10 @@ internal object GitLogWorktreeActionReplacement {
                 actionManager,
                 BRANCH_OPERATION_GROUP_ID,
             ) { nativeAction -> GitLogWorktreeBranchOperationGroup(nativeAction) }
+            replace(
+                actionManager,
+                BRANCH_GROUP_ID,
+            ) { nativeAction -> GitWorktreeBranchActionGroup(nativeAction) }
             installed = true
         }
     }
@@ -51,6 +56,10 @@ internal object GitLogWorktreeActionReplacement {
             actionManager,
             BRANCH_OPERATION_GROUP_ID,
         ) { nativeAction -> GitLogWorktreeBranchOperationGroup(nativeAction) }
+        replace(
+            actionManager,
+            BRANCH_GROUP_ID,
+        ) { nativeAction -> GitWorktreeBranchActionGroup(nativeAction) }
     }
 
     internal fun resetForTests() {

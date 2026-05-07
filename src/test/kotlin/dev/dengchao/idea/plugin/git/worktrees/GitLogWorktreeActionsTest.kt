@@ -25,6 +25,7 @@ import com.intellij.vcs.log.VcsRef
 import com.intellij.vcs.log.impl.HashImpl
 import com.intellij.vcs.log.impl.VcsRefImpl
 import dev.dengchao.idea.plugin.git.worktrees.actions.GitLogWorktreeActionReplacement
+import dev.dengchao.idea.plugin.git.worktrees.actions.GitWorktreeBranchActionGroup
 import dev.dengchao.idea.plugin.git.worktrees.actions.GitLogWorktreeBranchOperationGroup
 import dev.dengchao.idea.plugin.git.worktrees.actions.GitLogWorktreeCheckoutGroup
 import dev.dengchao.idea.plugin.git.worktrees.model.WorktreeInfo
@@ -52,6 +53,7 @@ class GitLogWorktreeActionsTest : LightPlatform4TestCase() {
 
         assertTrue(actionManager.getAction("Git.CheckoutGroup") is GitLogWorktreeCheckoutGroup)
         assertTrue(actionManager.getAction("Git.BranchOperationGroup") is GitLogWorktreeBranchOperationGroup)
+        assertTrue(actionManager.getAction("Git.Branch") is GitWorktreeBranchActionGroup)
 
         actionManager.replaceAction("Git.CheckoutGroup", originalCheckout)
         actionManager.replaceAction("Git.BranchOperationGroup", originalBranchOperations)
@@ -91,6 +93,84 @@ class GitLogWorktreeActionsTest : LightPlatform4TestCase() {
             ),
             events,
         )
+    }
+
+    @Test
+    fun `test Git branch popup replaces native checkout and delete for linked worktree branch`() {
+        val events = mutableListOf<String>()
+        val repository = gitRepository(rootPath = "/project/root", currentBranchName = "master") {
+            events += "refresh"
+        }
+        val branchName = "feat/admin-reward-task-query"
+        val worktree = WorktreeInfo(
+            path = "/project/admin-reward-task-query",
+            branchName = branchName,
+            isMain = false,
+            isCurrent = false,
+            isLocked = false,
+            isPrunable = false,
+        )
+        configureService(repository, worktree, events)
+
+        val nativeCheckout = git4idea.actions.ref.GitCheckoutAction()
+        val nativeDelete = git4idea.actions.ref.GitDeleteRefAction()
+        val nativeGroup = TestActionGroup(
+            "Branch",
+            listOf(
+                nativeCheckout,
+                GitCheckoutAsNewBranchLikeAction(),
+                nativeDelete,
+            ),
+        )
+        val children = GitWorktreeBranchActionGroup(nativeGroup).getChildren(TestActionEvent())
+
+        assertEquals(3, children.size)
+        assertNotSame(nativeCheckout, children[0])
+        assertSame(nativeGroup.getChildren(TestActionEvent())[1], children[1])
+        assertNotSame(nativeDelete, children[2])
+
+        val checkoutAction = wrapForBranch(children[0], repository, branchName)
+        val deleteAction = wrapForBranch(children[2], repository, branchName)
+        assertTrue(checkoutAction is DataSnapshotProvider)
+        assertTrue(deleteAction is DataSnapshotProvider)
+
+        checkoutAction.actionPerformed(branchPopupEvent(checkoutAction))
+        deleteAction.actionPerformed(branchPopupEvent(deleteAction))
+
+        assertEquals(
+            listOf(
+                "confirm checkout $branchName /project/admin-reward-task-query",
+                "task ${Gw4iBundle.message("GitWorktrees.task.checkout.branch.title")}",
+                "checkout $branchName force=false",
+                "refresh",
+                "decision $branchName /project/admin-reward-task-query",
+                "task ${Gw4iBundle.message("GitWorktrees.task.remove.worktree.title")}",
+                "remove /project/admin-reward-task-query",
+                "refresh",
+                "delete $branchName force=true",
+                "refresh",
+            ),
+            events,
+        )
+    }
+
+    @Test
+    fun `test Git branch popup delegates native checkout and delete for ordinary branches`() {
+        val nativeEvents = mutableListOf<String>()
+        val repository = gitRepository(rootPath = "/project/root", currentBranchName = "master")
+        configureService(repository, worktree = null, events = mutableListOf())
+
+        val nativeCheckout = NativeGitCheckoutAction(nativeEvents)
+        val nativeDelete = NativeGitDeleteRefAction(nativeEvents)
+        val nativeGroup = TestActionGroup("Branch", listOf(nativeCheckout, nativeDelete))
+        val children = GitWorktreeBranchActionGroup(nativeGroup).getChildren(TestActionEvent())
+
+        val checkoutAction = wrapForBranch(children[0], repository, "ordinary")
+        val deleteAction = wrapForBranch(children[1], repository, "ordinary")
+        checkoutAction.actionPerformed(branchPopupEvent(checkoutAction))
+        deleteAction.actionPerformed(branchPopupEvent(deleteAction))
+
+        assertEquals(listOf("native checkout", "native delete"), nativeEvents)
     }
 
     @Test
@@ -351,6 +431,39 @@ class GitLogWorktreeActionsTest : LightPlatform4TestCase() {
         })
     }
 
+    private fun branchPopupEvent(repository: GitRepository, branchName: String): com.intellij.openapi.actionSystem.AnActionEvent {
+        return TestActionEvent.createTestEvent(CustomizedDataContext.withSnapshot(DataContext.EMPTY_CONTEXT) { sink ->
+            sink[PlatformDataKeys.PROJECT] = project
+            sink[dev.dengchao.idea.plugin.git.worktrees.actions.GitBranchActionDataKeys.SELECTED_REF] =
+                GitLocalBranch(branchName)
+            sink[dev.dengchao.idea.plugin.git.worktrees.actions.GitBranchActionDataKeys.SELECTED_REPOSITORY] =
+                repository
+            sink[dev.dengchao.idea.plugin.git.worktrees.actions.GitBranchActionDataKeys.AFFECTED_REPOSITORIES] =
+                listOf(repository)
+        })
+    }
+
+    private fun branchPopupEvent(action: AnAction): com.intellij.openapi.actionSystem.AnActionEvent {
+        val provider = action as DataSnapshotProvider
+        val projectContext = CustomizedDataContext.withSnapshot(DataContext.EMPTY_CONTEXT) { sink ->
+            sink[PlatformDataKeys.PROJECT] = project
+        }
+        return TestActionEvent.createTestEvent(CustomizedDataContext.withSnapshot(projectContext, provider))
+    }
+
+    private fun wrapForBranch(action: AnAction, repository: GitRepository, branchName: String): AnAction {
+        val wrapperClass = Class.forName("git4idea.ui.branch.GitBranchActionWrapper")
+        return wrapperClass
+            .getMethod(
+                "tryWrap",
+                AnAction::class.java,
+                git4idea.GitBranch::class.java,
+                GitRepository::class.java,
+                List::class.java,
+            )
+            .invoke(null, action, GitLocalBranch(branchName), repository, listOf(repository)) as AnAction
+    }
+
     private fun commitId(repository: GitRepository): CommitId {
         return CommitId(HashImpl.build("0123456789abcdef0123456789abcdef01234567"), repository.root)
     }
@@ -498,5 +611,25 @@ class GitLogWorktreeActionsTest : LightPlatform4TestCase() {
         }
 
         override fun actionPerformed(e: com.intellij.openapi.actionSystem.AnActionEvent) = Unit
+    }
+
+    private class GitCheckoutAsNewBranchLikeAction : DumbAwareAction("Checkout as New Branch") {
+        override fun actionPerformed(e: com.intellij.openapi.actionSystem.AnActionEvent) = Unit
+    }
+
+    private class NativeGitCheckoutAction(
+        private val events: MutableList<String>,
+    ) : AnActionWrapper(git4idea.actions.ref.GitCheckoutAction()) {
+        override fun actionPerformed(e: com.intellij.openapi.actionSystem.AnActionEvent) {
+            events += "native checkout"
+        }
+    }
+
+    private class NativeGitDeleteRefAction(
+        private val events: MutableList<String>,
+    ) : AnActionWrapper(git4idea.actions.ref.GitDeleteRefAction()) {
+        override fun actionPerformed(e: com.intellij.openapi.actionSystem.AnActionEvent) {
+            events += "native delete"
+        }
     }
 }
