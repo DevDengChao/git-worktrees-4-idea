@@ -27,7 +27,7 @@ internal object BranchUsedByWorktreeContextResolver {
 
     fun fromBranchPopupEvent(
         e: AnActionEvent,
-        allowServiceFallback: Boolean = isUnitTestMode(),
+        allowServiceFallback: Boolean = false,
     ): BranchUsedByWorktreeContext? {
         val project = e.project ?: return null
         val branch = e.getData(GitBranchActionDataKeys.SELECTED_REF) as? GitLocalBranch ?: return null

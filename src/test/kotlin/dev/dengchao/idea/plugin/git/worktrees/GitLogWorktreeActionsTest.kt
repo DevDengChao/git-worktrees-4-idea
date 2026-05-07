@@ -137,19 +137,13 @@ class GitLogWorktreeActionsTest : LightPlatform4TestCase() {
     @Test
     fun `test Git branch popup replaces native checkout and delete for linked worktree branch`() {
         val events = mutableListOf<String>()
-        val repository = gitRepository(rootPath = "/project/root", currentBranchName = "master") {
+        val branchName = "feat/admin-reward-task-query"
+        val root = createRepositoryMetadataWithWorktree("master", branchName, "admin-reward-task-query")
+        val worktreePath = root.resolve(".worktrees/admin-reward-task-query").toString().replace(File.separatorChar, '/')
+        val repository = gitRepository(rootPath = root.toString().replace(File.separatorChar, '/'), currentBranchName = "master") {
             events += "refresh"
         }
-        val branchName = "feat/admin-reward-task-query"
-        val worktree = WorktreeInfo(
-            path = "/project/admin-reward-task-query",
-            branchName = branchName,
-            isMain = false,
-            isCurrent = false,
-            isLocked = false,
-            isPrunable = false,
-        )
-        configureService(repository, worktree, events)
+        configureService(repository, worktree = null, events)
 
         val nativeCheckout = git4idea.actions.ref.GitCheckoutAction()
         val nativeDelete = git4idea.actions.ref.GitDeleteRefAction()
@@ -178,13 +172,13 @@ class GitLogWorktreeActionsTest : LightPlatform4TestCase() {
 
         assertEquals(
             listOf(
-                "confirm checkout $branchName /project/admin-reward-task-query",
+                "confirm checkout $branchName $worktreePath",
                 "task ${Gw4iBundle.message("GitWorktrees.task.checkout.branch.title")}",
                 "checkout $branchName force=false",
                 "refresh",
-                "decision $branchName /project/admin-reward-task-query",
+                "decision $branchName $worktreePath",
                 "task ${Gw4iBundle.message("GitWorktrees.task.remove.worktree.title")}",
-                "remove /project/admin-reward-task-query",
+                "remove $worktreePath",
                 "refresh",
                 "delete $branchName force=true",
                 "refresh",
@@ -209,6 +203,48 @@ class GitLogWorktreeActionsTest : LightPlatform4TestCase() {
         checkoutAction.actionPerformed(branchPopupEvent(checkoutAction))
         deleteAction.actionPerformed(branchPopupEvent(deleteAction))
 
+        assertEquals(listOf("native checkout", "native delete"), nativeEvents)
+    }
+
+    @Test
+    fun `test Git branch popup wrapper does not use service fallback without git metadata`() {
+        val nativeEvents = mutableListOf<String>()
+        val events = mutableListOf<String>()
+        val repository = gitRepository(rootPath = "/project/root", currentBranchName = "master")
+        val branchName = "feat/admin-reward-task-query"
+        configureService(
+            repository,
+            WorktreeInfo(
+                path = "/project/admin-reward-task-query",
+                branchName = branchName,
+                isMain = false,
+                isCurrent = false,
+                isLocked = false,
+                isPrunable = false,
+            ),
+            events,
+        )
+
+        val nativeCheckout = NativeGitCheckoutAction(nativeEvents)
+        val nativeDelete = NativeGitDeleteRefAction(nativeEvents)
+        val nativeGroup = TestActionGroup("Branch", listOf(nativeCheckout, nativeDelete))
+        val children = GitWorktreeBranchActionGroup(nativeGroup).getChildren(TestActionEvent())
+
+        val checkoutAction = wrapForBranch(children[0], repository, branchName)
+        val deleteAction = wrapForBranch(children[1], repository, branchName)
+        val checkoutEvent = branchPopupEvent(checkoutAction)
+        val deleteEvent = branchPopupEvent(deleteAction)
+
+        checkoutAction.update(checkoutEvent)
+        deleteAction.update(deleteEvent)
+        checkoutAction.actionPerformed(checkoutEvent)
+        deleteAction.actionPerformed(deleteEvent)
+
+        assertEquals(
+            "Branch popup wrappers must not resolve linked worktrees through GitWorktreesOperationsService during runtime updates.",
+            emptyList<String>(),
+            events,
+        )
         assertEquals(listOf("native checkout", "native delete"), nativeEvents)
     }
 
