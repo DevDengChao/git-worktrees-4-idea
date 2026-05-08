@@ -10,10 +10,6 @@ internal class GitLogWorktreeActionInstaller : AppLifecycleListener {
     override fun appFrameCreated(commandLineArgs: List<String>) {
         GitLogWorktreeActionReplacement.install()
     }
-
-    override fun appStarted() {
-        GitLogWorktreeActionReplacement.install()
-    }
 }
 
 internal object GitLogWorktreeActionReplacement {

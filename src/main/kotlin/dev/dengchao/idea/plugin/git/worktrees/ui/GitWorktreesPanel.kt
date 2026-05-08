@@ -7,7 +7,8 @@ import com.intellij.ide.impl.ProjectUtil
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.actionSystem.ActionGroup
 import com.intellij.openapi.actionSystem.ActionManager
-import com.intellij.openapi.actionSystem.DataProvider
+import com.intellij.openapi.actionSystem.DataSink
+import com.intellij.openapi.actionSystem.UiDataProvider
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.progress.ProgressIndicator
@@ -55,7 +56,7 @@ import javax.swing.table.AbstractTableModel
 import javax.swing.table.JTableHeader
 import javax.swing.table.TableColumnModel
 
-class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(true, true), DataProvider, Disposable {
+class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(true, true), UiDataProvider, Disposable {
 
     internal enum class Column(
         val titleKey: String,
@@ -255,14 +256,11 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
         openWorktreeProject(Path.of(worktree.path))
     }
 
-    override fun getData(dataId: String): Any? {
-        return when {
-            GitWorktreesDataKeys.PANEL.`is`(dataId) -> this
-            GitWorktreesDataKeys.CURRENT_REPOSITORY.`is`(dataId) -> selectedRepository()
-            GitWorktreesDataKeys.SELECTED_WORKTREE.`is`(dataId) -> selectedWorktree()
-            GitWorktreesDataKeys.SELECTED_WORKTREES.`is`(dataId) -> selectedWorktrees()
-            else -> null
-        }
+    override fun uiDataSnapshot(sink: DataSink) {
+        sink[GitWorktreesDataKeys.PANEL] = this
+        sink[GitWorktreesDataKeys.CURRENT_REPOSITORY] = selectedRepository()
+        sink[GitWorktreesDataKeys.SELECTED_WORKTREE] = selectedWorktree()
+        sink[GitWorktreesDataKeys.SELECTED_WORKTREES] = selectedWorktrees()
     }
 
     private fun initToolbar() {

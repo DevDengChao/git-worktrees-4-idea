@@ -25,6 +25,7 @@ import com.intellij.vcs.log.VcsRef
 import com.intellij.vcs.log.impl.HashImpl
 import com.intellij.vcs.log.impl.VcsRefImpl
 import dev.dengchao.idea.plugin.git.worktrees.actions.GitLogWorktreeActionReplacement
+import dev.dengchao.idea.plugin.git.worktrees.actions.GitLogWorktreeActionInstaller
 import dev.dengchao.idea.plugin.git.worktrees.actions.GitWorktreeBranchActionGroup
 import dev.dengchao.idea.plugin.git.worktrees.actions.GitLogWorktreeBranchOperationGroup
 import dev.dengchao.idea.plugin.git.worktrees.actions.GitLogWorktreeCheckoutGroup
@@ -70,6 +71,14 @@ class GitLogWorktreeActionsTest : LightPlatform4TestCase() {
         actionManager.replaceAction("Git.CheckoutGroup", originalCheckout)
         actionManager.replaceAction("Git.BranchOperationGroup", originalBranchOperations)
         actionManager.replaceAction("Git.Branch", originalBranch)
+    }
+
+    @Test
+    fun `test action installer only overrides public app lifecycle callback`() {
+        val declaredMethodNames = GitLogWorktreeActionInstaller::class.java.declaredMethods.map { it.name }.toSet()
+
+        assertTrue("Installer should keep the public startup callback", "appFrameCreated" in declaredMethodNames)
+        assertFalse("Installer should not override internal AppLifecycleListener.appStarted", "appStarted" in declaredMethodNames)
     }
 
     @Test

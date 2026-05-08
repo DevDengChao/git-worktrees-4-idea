@@ -11,7 +11,6 @@ import com.intellij.openapi.wm.RegisterToolWindowTask
 import com.intellij.openapi.wm.ToolWindowAnchor
 import com.intellij.openapi.wm.ToolWindowId
 import com.intellij.openapi.wm.ToolWindowManager
-import com.intellij.openapi.wm.ex.ToolWindowManagerListener
 import com.intellij.testFramework.LightPlatform4TestCase
 import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.testFramework.TestActionEvent
@@ -23,7 +22,6 @@ import dev.dengchao.idea.plugin.git.worktrees.ui.GitWorktreesDataKeys
 import java.util.function.Function
 import javax.swing.JMenuItem
 import javax.swing.JTable
-import kotlinx.coroutines.runBlocking
 import org.junit.Test
 
 class GitWorktreesToolWindowFactoryTest : LightPlatform4TestCase() {
@@ -33,6 +31,19 @@ class GitWorktreesToolWindowFactoryTest : LightPlatform4TestCase() {
         val factory = GitWorktreesToolWindowFactory()
 
         assertTrue(factory.shouldBeAvailable(project))
+    }
+
+    @Test
+    fun `test tool window factory does not declare verifier-sensitive default bridge methods`() {
+        val declaredMethodNames = GitWorktreesToolWindowFactory::class.java.declaredMethods.map { it.name }.toSet()
+
+        assertFalse("Factory should not override experimental ToolWindowFactory.manage", "manage" in declaredMethodNames)
+        assertFalse("Factory should not declare deprecated isApplicable bridge", "isApplicable" in declaredMethodNames)
+        assertFalse("Factory should not declare isApplicableAsync bridge", "isApplicableAsync" in declaredMethodNames)
+        assertFalse("Factory should not declare default init bridge", "init" in declaredMethodNames)
+        assertFalse("Factory should not declare deprecated isDoNotActivateOnStart bridge", "isDoNotActivateOnStart" in declaredMethodNames)
+        assertFalse("Factory should not declare internal getAnchor bridge", "getAnchor" in declaredMethodNames)
+        assertFalse("Factory should not declare internal getIcon bridge", "getIcon" in declaredMethodNames)
     }
 
     @Test
@@ -101,29 +112,6 @@ class GitWorktreesToolWindowFactoryTest : LightPlatform4TestCase() {
         val factory = GitWorktreesToolWindowFactory()
 
         factory.createToolWindowContent(project, legacyToolWindow)
-        PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
-
-        assertNotNull(vcsToolWindow.contentManager.findContent("Worktrees"))
-        assertEquals(0, legacyToolWindow.contentManager.contentCount)
-    }
-
-    @Test
-    fun `test initialized stripe tool window redirects when shown again`() {
-        val toolWindowManager = ToolWindowManager.getInstance(project)
-        val vcsToolWindow = toolWindowManager.getToolWindow(ToolWindowId.VCS)
-            ?: toolWindowManager.registerToolWindow(RegisterToolWindowTask.notClosable(ToolWindowId.VCS, ToolWindowAnchor.BOTTOM))
-        val legacyToolWindow = toolWindowManager.getToolWindow(GitWorktreesToolWindowFactory.TOOLWINDOW_ID)
-            ?: toolWindowManager.registerToolWindow(
-                RegisterToolWindowTask.notClosable(GitWorktreesToolWindowFactory.TOOLWINDOW_ID, ToolWindowAnchor.RIGHT),
-            )
-        val factory = GitWorktreesToolWindowFactory()
-        runBlocking {
-            factory.manage(legacyToolWindow, toolWindowManager)
-        }
-
-        @Suppress("DEPRECATION")
-        project.messageBus.syncPublisher(ToolWindowManagerListener.TOPIC)
-            .toolWindowShown(GitWorktreesToolWindowFactory.TOOLWINDOW_ID, legacyToolWindow)
         PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
 
         assertNotNull(vcsToolWindow.contentManager.findContent("Worktrees"))

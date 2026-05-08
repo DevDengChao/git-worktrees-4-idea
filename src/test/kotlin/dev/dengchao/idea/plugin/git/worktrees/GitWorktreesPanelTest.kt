@@ -2,6 +2,12 @@
 package dev.dengchao.idea.plugin.git.worktrees
 
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.actionSystem.DataKey
+import com.intellij.openapi.actionSystem.DataMap
+import com.intellij.openapi.actionSystem.DataProvider
+import com.intellij.openapi.actionSystem.DataSink
+import com.intellij.openapi.actionSystem.DataSnapshotProvider
+import com.intellij.openapi.actionSystem.UiDataProvider
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.actionSystem.ActionToolbar
 import com.intellij.ui.components.JBTextField
@@ -195,13 +201,13 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
         val speedSearch = panel.speedSearchSupplyForTests()
 
         speedSearch.findAndSelectElement("beta-tree")
-        assertSame(beta, panel.getData(GitWorktreesDataKeys.SELECTED_WORKTREE.name))
+        assertSame(beta, panel.dataForTests(GitWorktreesDataKeys.SELECTED_WORKTREE))
 
         speedSearch.findAndSelectElement("feature/login")
-        assertSame(alpha, panel.getData(GitWorktreesDataKeys.SELECTED_WORKTREE.name))
+        assertSame(alpha, panel.dataForTests(GitWorktreesDataKeys.SELECTED_WORKTREE))
 
         speedSearch.findAndSelectElement("location-target")
-        assertSame(release, panel.getData(GitWorktreesDataKeys.SELECTED_WORKTREE.name))
+        assertSame(release, panel.dataForTests(GitWorktreesDataKeys.SELECTED_WORKTREE))
     }
 
     @Test
@@ -213,8 +219,8 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
 
         speedSearch.findAndSelectElement("matched-repository")
 
-        assertNull(panel.getData(GitWorktreesDataKeys.CURRENT_REPOSITORY.name))
-        assertNull(panel.getData(GitWorktreesDataKeys.SELECTED_WORKTREE.name))
+        assertNull(panel.dataForTests(GitWorktreesDataKeys.CURRENT_REPOSITORY))
+        assertNull(panel.dataForTests(GitWorktreesDataKeys.SELECTED_WORKTREE))
     }
 
     @Test
@@ -252,7 +258,7 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
         panel.setFilterForTests(GitWorktreesPanel.Column.LOCATION, "/project")
 
         assertEquals(listOf("root", "alpha-tree"), panel.visibleRowLabelsForTests())
-        assertSame(alpha, panel.getData(GitWorktreesDataKeys.SELECTED_WORKTREE.name))
+        assertSame(alpha, panel.dataForTests(GitWorktreesDataKeys.SELECTED_WORKTREE))
     }
 
     @Test
@@ -363,8 +369,8 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
         panel.clickRepositoryTextForTests(0)
 
         assertEquals(listOf("root", "feature-tree"), panel.visibleRowLabelsForTests())
-        assertSame(repository, panel.getData(GitWorktreesDataKeys.CURRENT_REPOSITORY.name))
-        assertNull(panel.getData(GitWorktreesDataKeys.SELECTED_WORKTREE.name))
+        assertSame(repository, panel.dataForTests(GitWorktreesDataKeys.CURRENT_REPOSITORY))
+        assertNull(panel.dataForTests(GitWorktreesDataKeys.SELECTED_WORKTREE))
     }
 
     @Test
@@ -428,7 +434,7 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
         panel.doubleClickRowForTests(1)
 
         assertEquals(listOf("root", "feature-tree"), panel.visibleRowLabelsForTests())
-        assertSame(worktree, panel.getData(GitWorktreesDataKeys.SELECTED_WORKTREE.name))
+        assertSame(worktree, panel.dataForTests(GitWorktreesDataKeys.SELECTED_WORKTREE))
         assertEquals(listOf(Path.of(worktree.path).toString()), openedPaths)
     }
 
@@ -460,8 +466,8 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
 
         panel.selectRowForTests(0)
 
-        assertSame(repository, panel.getData(GitWorktreesDataKeys.CURRENT_REPOSITORY.name))
-        assertNull(panel.getData(GitWorktreesDataKeys.SELECTED_WORKTREE.name))
+        assertSame(repository, panel.dataForTests(GitWorktreesDataKeys.CURRENT_REPOSITORY))
+        assertNull(panel.dataForTests(GitWorktreesDataKeys.SELECTED_WORKTREE))
     }
 
     @Test
@@ -479,8 +485,8 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
 
         panel.selectRowForTests(1)
 
-        assertSame(repository, panel.getData(GitWorktreesDataKeys.CURRENT_REPOSITORY.name))
-        assertSame(worktree, panel.getData(GitWorktreesDataKeys.SELECTED_WORKTREE.name))
+        assertSame(repository, panel.dataForTests(GitWorktreesDataKeys.CURRENT_REPOSITORY))
+        assertSame(worktree, panel.dataForTests(GitWorktreesDataKeys.SELECTED_WORKTREE))
     }
 
     @Test
@@ -507,11 +513,11 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
         panel.selectRowsForTests(1, 2)
 
         @Suppress("UNCHECKED_CAST")
-        val selected = panel.getData(GitWorktreesDataKeys.SELECTED_WORKTREES.name) as List<GitWorktreesDataKeys.SelectedGitWorktree>
+        val selected = panel.dataForTests(GitWorktreesDataKeys.SELECTED_WORKTREES) as List<GitWorktreesDataKeys.SelectedGitWorktree>
         assertEquals(listOf(featureWorktree, bugfixWorktree), selected.map { it.worktree })
         assertTrue(selected.all { it.repository === repository })
-        assertNull(panel.getData(GitWorktreesDataKeys.CURRENT_REPOSITORY.name))
-        assertNull(panel.getData(GitWorktreesDataKeys.SELECTED_WORKTREE.name))
+        assertNull(panel.dataForTests(GitWorktreesDataKeys.CURRENT_REPOSITORY))
+        assertNull(panel.dataForTests(GitWorktreesDataKeys.SELECTED_WORKTREE))
     }
 
     @Test
@@ -530,10 +536,10 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
         panel.selectRowsForTests(0, 1)
 
         @Suppress("UNCHECKED_CAST")
-        val selected = panel.getData(GitWorktreesDataKeys.SELECTED_WORKTREES.name) as List<GitWorktreesDataKeys.SelectedGitWorktree>
+        val selected = panel.dataForTests(GitWorktreesDataKeys.SELECTED_WORKTREES) as List<GitWorktreesDataKeys.SelectedGitWorktree>
         assertEquals(listOf(worktree), selected.map { it.worktree })
-        assertNull(panel.getData(GitWorktreesDataKeys.CURRENT_REPOSITORY.name))
-        assertNull(panel.getData(GitWorktreesDataKeys.SELECTED_WORKTREE.name))
+        assertNull(panel.dataForTests(GitWorktreesDataKeys.CURRENT_REPOSITORY))
+        assertNull(panel.dataForTests(GitWorktreesDataKeys.SELECTED_WORKTREE))
     }
 
     @Test
@@ -549,7 +555,7 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
         )
         val panel = panelWithWorktrees(repository, listOf(worktree))
 
-        assertSame(worktree, panel.getData(GitWorktreesDataKeys.SELECTED_WORKTREE.name))
+        assertSame(worktree, panel.dataForTests(GitWorktreesDataKeys.SELECTED_WORKTREE))
     }
 
     @Test
@@ -577,7 +583,7 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
         panel.reloadSynchronouslyForTests()
 
         @Suppress("UNCHECKED_CAST")
-        val selected = panel.getData(GitWorktreesDataKeys.SELECTED_WORKTREES.name) as List<GitWorktreesDataKeys.SelectedGitWorktree>
+        val selected = panel.dataForTests(GitWorktreesDataKeys.SELECTED_WORKTREES) as List<GitWorktreesDataKeys.SelectedGitWorktree>
         assertEquals(listOf(featureWorktree, bugfixWorktree), selected.map { it.worktree })
     }
 
@@ -678,6 +684,12 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
         }
     }
 
+    private fun <T : Any> GitWorktreesPanel.dataForTests(key: DataKey<T>): T? {
+        val sink = TestDataSink()
+        uiDataSnapshot(sink)
+        return sink.get(key)
+    }
+
     private fun GitWorktreesPanel.doubleClickRowForTests(row: Int) {
         clickRowForTests(row, clickCount = 2, xOffset = { rect -> rect.width / 2 })
     }
@@ -748,5 +760,40 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
         override fun getLength(): Long = 0
         override fun refresh(asynchronous: Boolean, recursive: Boolean, postRunnable: Runnable?) = Unit
         override fun getInputStream() = throw UnsupportedOperationException()
+    }
+
+    private class TestDataSink : DataSink {
+        private val data = mutableMapOf<DataKey<*>, Any?>()
+
+        @Suppress("UNCHECKED_CAST")
+        fun <T : Any> get(key: DataKey<T>): T? = data[key] as T?
+
+        override fun <T : Any> set(key: DataKey<T>, data: T?) {
+            this.data[key] = data
+        }
+
+        override fun <T : Any> setNull(key: DataKey<T>) {
+            data[key] = null
+        }
+
+        override fun <T : Any> lazyValue(key: DataKey<T>, data: (DataMap) -> T?) {
+            throw UnsupportedOperationException("Lazy data is not used in GitWorktreesPanel tests")
+        }
+
+        override fun <T : Any> lazyNull(key: DataKey<T>) {
+            data[key] = null
+        }
+
+        override fun uiDataSnapshot(provider: UiDataProvider) {
+            provider.uiDataSnapshot(this)
+        }
+
+        override fun uiDataSnapshot(provider: DataProvider) {
+            throw UnsupportedOperationException("Legacy DataProvider is not used in GitWorktreesPanel tests")
+        }
+
+        override fun dataSnapshot(provider: DataSnapshotProvider) {
+            provider.dataSnapshot(this)
+        }
     }
 }

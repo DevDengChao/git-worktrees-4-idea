@@ -56,7 +56,7 @@ private class CheckoutSelectedBranchIgnoringOtherWorktreesAction(
         repositories: List<GitRepository>,
         reference: GitReference,
     ) {
-        nativeAction.update(e)
+        ActionUtil.updateAction(nativeAction, e)
         val context = BranchUsedByWorktreeContextResolver.fromBranchPopupEvent(e) ?: return
         e.presentation.isEnabledAndVisible = true
         e.presentation.text = nativeAction.templatePresentation.text
@@ -71,7 +71,7 @@ private class CheckoutSelectedBranchIgnoringOtherWorktreesAction(
     ) {
         val context = BranchUsedByWorktreeContextResolver.fromBranchPopupEvent(e)
         if (context == null) {
-            nativeAction.actionPerformed(e)
+            ActionUtil.performAction(nativeAction, e)
             return
         }
 
@@ -94,7 +94,7 @@ private class DeleteSelectedBranchUsedByWorktreeAction(
         repositories: List<GitRepository>,
         reference: GitReference,
     ) {
-        nativeAction.update(e)
+        ActionUtil.updateAction(nativeAction, e)
         val context = BranchUsedByWorktreeContextResolver.fromBranchPopupEvent(e) ?: return
         e.presentation.isEnabledAndVisible = true
         e.presentation.text = nativeAction.templatePresentation.text
@@ -109,7 +109,7 @@ private class DeleteSelectedBranchUsedByWorktreeAction(
     ) {
         val context = BranchUsedByWorktreeContextResolver.fromBranchPopupEvent(e)
         if (context == null) {
-            nativeAction.actionPerformed(e)
+            ActionUtil.performAction(nativeAction, e)
             return
         }
 
