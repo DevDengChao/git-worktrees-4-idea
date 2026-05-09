@@ -374,7 +374,7 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
     }
 
     @Test
-    fun `sticky repository row appears while scrolling inside repository group`() {
+    fun `sticky repository row is visible and top-aligned while scrolling inside repository group`() {
         val firstRepository = gitRepository(rootPath = "/project/first", currentBranchName = "master")
         val secondRepository = gitRepository(rootPath = "/project/second", currentBranchName = "master")
         val firstWorktrees = listOf(

@@ -545,6 +545,8 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
         var stickyY = visibleRect.y
         if (nextRepositoryRow != null) {
             val nextRowY = table.getCellRect(nextRepositoryRow, 0, true).y
+            // Keep the sticky row pinned to viewport top until the next repository row reaches it,
+            // then shift upward so the next repository row naturally pushes it out.
             stickyY = minOf(stickyY, nextRowY - stickyRowHeight)
         }
         return StickyRepositoryRowState(stickyRowIndex, stickyY)
