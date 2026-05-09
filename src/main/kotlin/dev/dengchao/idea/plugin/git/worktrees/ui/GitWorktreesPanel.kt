@@ -545,11 +545,11 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
         var stickyY = visibleRect.y
         if (nextRepositoryRow != null) {
             val nextRowY = table.getCellRect(nextRepositoryRow, 0, true).y
-            // Keep the sticky row pinned to viewport top until the next repository row reaches it,
-            // then shift upward so the next repository row naturally pushes it out.
+            // Keep the sticky row pinned to viewport top. Once the next repository row enters the top sticky area,
+            // shift the current sticky row upward by up to one row height so the next row pushes it out naturally.
             stickyY = minOf(stickyY, nextRowY - stickyRowHeight)
         }
-        return StickyRepositoryRowState(stickyRowIndex, stickyY)
+        return StickyRepositoryRowState(stickyRowIndex, stickyY, stickyRowHeight)
     }
 
     private sealed interface WorktreeTableRow {
@@ -588,6 +588,7 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
     private data class StickyRepositoryRowState(
         val rowIndex: Int,
         val y: Int,
+        val height: Int,
     )
 
     private enum class SortDirection {
@@ -699,12 +700,11 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
             if (visibleRect.height <= 0) return
 
             val previousClip = graphics.clip
-            val stickyRowHeight = getCellRect(stickyRow.rowIndex, 0, true).height
             try {
-                graphics.setClip(Rectangle(visibleRect.x, visibleRect.y, visibleRect.width, stickyRowHeight))
+                graphics.setClip(Rectangle(visibleRect.x, visibleRect.y, visibleRect.width, stickyRow.height))
                 for (column in 0 until columnCount) {
                     val sourceRect = getCellRect(stickyRow.rowIndex, column, true)
-                    val paintRect = Rectangle(sourceRect.x, stickyRow.y, sourceRect.width, stickyRowHeight)
+                    val paintRect = Rectangle(sourceRect.x, stickyRow.y, sourceRect.width, stickyRow.height)
                     val renderer = getCellRenderer(stickyRow.rowIndex, column)
                     val component = prepareRenderer(renderer, stickyRow.rowIndex, column)
                     rendererPane.paintComponent(

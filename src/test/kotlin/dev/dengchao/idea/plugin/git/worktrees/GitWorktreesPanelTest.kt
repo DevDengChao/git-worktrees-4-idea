@@ -421,7 +421,9 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
         val pushTransitionOffset = panel.rowHeightForTests() / 2
         panel.scrollToYForTests(nextRepositoryTop - pushTransitionOffset)
         assertEquals("first", panel.stickyRepositoryLabelForTests())
-        assertTrue(requireNotNull(panel.stickyRepositoryYOffsetForTests()) < 0)
+        assertTrue("Sticky row should have negative y-offset during push transition") {
+            requireNotNull(panel.stickyRepositoryYOffsetForTests()) < 0
+        }
 
         panel.scrollToRowTopForTests(5)
         assertEquals("second", panel.stickyRepositoryLabelForTests())
