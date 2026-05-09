@@ -655,6 +655,18 @@ class GitWorktreesActionsTest : LightPlatform4TestCase() {
         assertEquals(listOf("checkout feature force=false"), events)
     }
 
+    @Test
+    fun `test RemoveSelectedWorktreeAction proceeds when license status is unknown`() {
+        // UNKNOWN means LicensingFacade not yet available (early startup) — guard must pass through.
+        // Verify at the guard level directly to avoid triggering removal confirmation dialogs in tests.
+        dev.dengchao.idea.plugin.git.worktrees.licensing.Gw4iLicense.overrideForTests(
+            dev.dengchao.idea.plugin.git.worktrees.licensing.Gw4iLicense.LicenseStatus.UNKNOWN,
+            testRootDisposable,
+        )
+        // UNKNOWN is not BLOCKED, so the guard must return true without notifying
+        assertTrue(dev.dengchao.idea.plugin.git.worktrees.actions.PaidActionGuard.checkAndNotify(project))
+    }
+
     private fun setupLicenseBlocked() {
         dev.dengchao.idea.plugin.git.worktrees.licensing.Gw4iLicense.overrideForTests(
             dev.dengchao.idea.plugin.git.worktrees.licensing.Gw4iLicense.LicenseStatus.BLOCKED,

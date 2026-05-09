@@ -41,7 +41,8 @@ object Gw4iLicense {
 
         val facade = try {
             LicensingFacade.getInstance()
-        } catch (e: Exception) {
+        } catch (e: RuntimeException) {
+            // IDE application may not be fully initialised yet (early startup).
             LOG.debug("LicensingFacade not yet available", e)
             return LicenseStatus.UNKNOWN
         }
