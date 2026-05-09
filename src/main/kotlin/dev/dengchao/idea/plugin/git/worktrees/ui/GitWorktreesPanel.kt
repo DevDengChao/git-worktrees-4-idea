@@ -99,6 +99,7 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
     private var snapshots: List<RepositoryWorktreesSnapshot> = emptyList()
     private var visibleRows: List<WorktreeTableRow> = emptyList()
     private var repositoryRowIndices: List<Int> = emptyList()
+    private var testViewport: Rectangle? = null
 
     init {
         initToolbar()
@@ -225,15 +226,18 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
 
     internal fun stickyRepositoryYOffsetForTests(): Int? {
         val stickyRow = stickyRepositoryRowState() ?: return null
-        return stickyRow.y - table.visibleRect.y
+        val viewportY = testViewport?.y ?: table.visibleRect.y
+        return stickyRow.y - viewportY
     }
 
     internal fun scrollToRowTopForTests(row: Int) {
         val rowBounds = table.getCellRect(row, 0, true)
+        testViewport = Rectangle(0, rowBounds.y, maxOf(table.width, 1), table.rowHeight)
         table.scrollRectToVisible(Rectangle(0, rowBounds.y, 1, rowBounds.height))
     }
 
     internal fun scrollToYForTests(y: Int) {
+        testViewport = Rectangle(0, y, maxOf(table.width, 1), table.rowHeight)
         table.scrollRectToVisible(Rectangle(0, y, 1, table.rowHeight))
     }
 
@@ -532,8 +536,7 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
 
     private fun stickyRepositoryRowState(): StickyRepositoryRowState? {
         if (visibleRows.isEmpty()) return null
-        val visibleRect = table.visibleRect
-        if (visibleRect.height <= 0) return null
+        val visibleRect = testViewport ?: table.visibleRect.takeIf { it.height > 0 } ?: return null
 
         val topRow = table.rowAtPoint(visibleRect.location)
         if (topRow < 0 || visibleRows.getOrNull(topRow) is RepositoryRow) return null
