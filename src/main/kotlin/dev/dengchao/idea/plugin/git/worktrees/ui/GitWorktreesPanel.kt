@@ -33,6 +33,9 @@ import git4idea.repo.GitRepository
 import git4idea.repo.GitRepositoryChangeListener
 import java.awt.BorderLayout
 import java.awt.Dimension
+import java.awt.Graphics
+import java.awt.Graphics2D
+import java.awt.Point
 import java.awt.Rectangle
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
@@ -86,7 +89,7 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
 
     private val service = GitWorktreesOperationsService.getInstance(project)
     private val tableModel = WorktreesTableModel()
-    private val table = JBTable(tableModel)
+    private val table = StickyWorktreesTable()
     private val filters = linkedMapOf<Column, String>().apply {
         Column.entries.forEach { put(it, "") }
     }
@@ -210,6 +213,32 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
             }
         }
     }
+
+    internal fun stickyRepositoryLabelForTests(): String? {
+        val stickyRow = stickyRepositoryRowState() ?: return null
+        val repositoryRow = visibleRows.getOrNull(stickyRow.rowIndex) as? RepositoryRow ?: return null
+        return repositoryRow.presentationName(project)
+    }
+
+    internal fun stickyRepositoryYOffsetForTests(): Int? {
+        val stickyRow = stickyRepositoryRowState() ?: return null
+        return stickyRow.y - table.visibleRect.y
+    }
+
+    internal fun scrollToRowTopForTests(row: Int) {
+        val rowBounds = table.getCellRect(row, 0, true)
+        table.scrollRectToVisible(Rectangle(0, rowBounds.y, 1, rowBounds.height))
+    }
+
+    internal fun scrollToYForTests(y: Int) {
+        table.scrollRectToVisible(Rectangle(0, y, 1, table.rowHeight))
+    }
+
+    internal fun rowTopForTests(row: Int): Int {
+        return table.getCellRect(row, 0, true).y
+    }
+
+    internal fun rowHeightForTests(): Int = table.rowHeight
 
     internal fun setFilterForTests(column: Column, value: String) {
         setFilter(column, value, updateField = true)
@@ -498,6 +527,27 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
         return visibleRows.getOrNull(selectedRows.single())
     }
 
+    private fun stickyRepositoryRowState(): StickyRepositoryRowState? {
+        if (visibleRows.isEmpty()) return null
+        val visibleRect = table.visibleRect
+        if (visibleRect.height <= 0) return null
+
+        val topRow = table.rowAtPoint(Point(visibleRect.x + 1, visibleRect.y + 1))
+        if (topRow < 0 || visibleRows.getOrNull(topRow) is RepositoryRow) return null
+
+        val stickyRowIndex = (topRow downTo 0).firstOrNull { row -> visibleRows[row] is RepositoryRow } ?: return null
+        val nextRepositoryRow = ((stickyRowIndex + 1) until visibleRows.size).firstOrNull { row ->
+            visibleRows[row] is RepositoryRow
+        }
+
+        var stickyY = visibleRect.y
+        if (nextRepositoryRow != null) {
+            val nextRowY = table.getCellRect(nextRepositoryRow, 0, true).y
+            stickyY = minOf(stickyY, nextRowY - table.rowHeight)
+        }
+        return StickyRepositoryRowState(stickyRowIndex, stickyY)
+    }
+
     private sealed interface WorktreeTableRow {
         val repository: GitRepository
     }
@@ -529,6 +579,11 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
     private data class SortRule(
         val column: Column,
         val direction: SortDirection,
+    )
+
+    private data class StickyRepositoryRowState(
+        val rowIndex: Int,
+        val y: Int,
     )
 
     private enum class SortDirection {
@@ -621,6 +676,43 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
                 null -> Unit
             }
             SpeedSearchUtil.appendFragmentsForSpeedSearch(table, text, SimpleTextAttributes.REGULAR_ATTRIBUTES, true, this)
+        }
+    }
+
+    private inner class StickyWorktreesTable : JBTable(tableModel) {
+        override fun paintComponent(g: Graphics) {
+            super.paintComponent(g)
+            val stickyRow = stickyRepositoryRowState() ?: return
+            val graphics = g as? Graphics2D ?: return
+            paintStickyRepositoryRow(graphics, stickyRow)
+        }
+
+        private fun paintStickyRepositoryRow(
+            graphics: Graphics2D,
+            stickyRow: StickyRepositoryRowState,
+        ) {
+            val visibleRect = visibleRect
+            if (visibleRect.height <= 0) return
+
+            val previousClip = graphics.clip
+            graphics.clip = Rectangle(visibleRect.x, visibleRect.y, visibleRect.width, rowHeight)
+            for (column in 0 until columnCount) {
+                val sourceRect = getCellRect(stickyRow.rowIndex, column, true)
+                val paintRect = Rectangle(sourceRect.x, stickyRow.y, sourceRect.width, rowHeight)
+                val renderer = getCellRenderer(stickyRow.rowIndex, column)
+                val component = prepareRenderer(renderer, stickyRow.rowIndex, column)
+                rendererPane.paintComponent(
+                    graphics,
+                    component,
+                    this,
+                    paintRect.x,
+                    paintRect.y,
+                    paintRect.width,
+                    paintRect.height,
+                    true,
+                )
+            }
+            graphics.clip = previousClip
         }
     }
 
