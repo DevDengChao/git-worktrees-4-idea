@@ -87,10 +87,10 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
     }
 
     @Test
-    fun `table shows repository group and three worktree columns`() {
+    fun `table shows repository and worktree values in dedicated columns`() {
         val repository = gitRepository(rootPath = "/project/root", currentBranchName = "master")
         val worktree = WorktreeInfo(
-            path = "/project/root-feature",
+            path = "/project/root/root-feature",
             branchName = "feature/login",
             isMain = false,
             isCurrent = false,
@@ -98,7 +98,7 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
             isPrunable = false,
         )
         val detachedWorktree = WorktreeInfo(
-            path = "/project/root-detached",
+            path = "/project/root/root-detached",
             branchName = null,
             isMain = false,
             isCurrent = false,
@@ -111,11 +111,31 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
         assertEquals(listOf("Worktree", "Branch", "Location"), panel.columnNamesForTests())
         assertEquals(3, panel.columnCountForTests())
         assertTrue(panel.isRepositoryRowForTests(0))
+        assertEquals("root", panel.tableValueForTests(0, 0))
+        assertEquals("", panel.tableValueForTests(0, 1))
+        assertEquals("/project/root", panel.tableValueForTests(0, 2))
         assertEquals("root-feature", panel.tableValueForTests(1, 0))
         assertEquals("feature/login", panel.tableValueForTests(1, 1))
-        assertEquals("/project/root-feature", panel.tableValueForTests(1, 2))
+        assertEquals("root-feature", panel.tableValueForTests(1, 2))
         assertEquals("root-detached", panel.tableValueForTests(2, 0))
         assertEquals("detached", panel.tableValueForTests(2, 1))
+        assertEquals("root-detached", panel.tableValueForTests(2, 2))
+    }
+
+    @Test
+    fun `worktree location falls back to absolute path outside repository root`() {
+        val repository = gitRepository(rootPath = "/project/root", currentBranchName = "master")
+        val outsideWorktree = WorktreeInfo(
+            path = "/project/peer-worktree",
+            branchName = "feature/peer",
+            isMain = false,
+            isCurrent = false,
+            isLocked = false,
+            isPrunable = false,
+        )
+        val panel = panelWithWorktrees(repository, listOf(outsideWorktree))
+
+        assertEquals("/project/peer-worktree", panel.tableValueForTests(1, 2))
     }
 
     @Test
@@ -248,17 +268,30 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
     @Test
     fun `column filters match case-insensitive contains with AND semantics`() {
         val repository = gitRepository(rootPath = "/project/root", currentBranchName = "master")
-        val alpha = WorktreeInfo(path = "/project/alpha-tree", branchName = "feature/login", isMain = false, isCurrent = false, isLocked = false, isPrunable = false)
+        val alpha = WorktreeInfo(path = "/project/root/alpha-tree", branchName = "feature/login", isMain = false, isCurrent = false, isLocked = false, isPrunable = false)
         val beta = WorktreeInfo(path = "/project/beta-tree", branchName = "feature/report", isMain = false, isCurrent = false, isLocked = false, isPrunable = false)
         val release = WorktreeInfo(path = "/release/alpha-prod", branchName = "release/login", isMain = false, isCurrent = false, isLocked = false, isPrunable = false)
         val panel = panelWithWorktrees(repository, listOf(alpha, beta, release))
 
         panel.setFilterForTests(GitWorktreesPanel.Column.WORKTREE_ID, "ALPHA")
         panel.setFilterForTests(GitWorktreesPanel.Column.BRANCH_NAME, "login")
-        panel.setFilterForTests(GitWorktreesPanel.Column.LOCATION, "/project")
+        panel.setFilterForTests(GitWorktreesPanel.Column.LOCATION, "alpha-tree")
 
         assertEquals(listOf("root", "alpha-tree"), panel.visibleRowLabelsForTests())
         assertSame(alpha, panel.dataForTests(GitWorktreesDataKeys.SELECTED_WORKTREE))
+    }
+
+    @Test
+    fun `speed search can match relative location text`() {
+        val repository = gitRepository(rootPath = "/project/root", currentBranchName = "master")
+        val nested = WorktreeInfo(path = "/project/root/nested/location-token", branchName = "feature/nested", isMain = false, isCurrent = false, isLocked = false, isPrunable = false)
+        val plain = WorktreeInfo(path = "/project/root/plain-tree", branchName = "feature/plain", isMain = false, isCurrent = false, isLocked = false, isPrunable = false)
+        val panel = panelWithWorktrees(repository, listOf(plain, nested))
+        val speedSearch = panel.speedSearchSupplyForTests()
+
+        speedSearch.findAndSelectElement("nested/")
+
+        assertSame(nested, panel.dataForTests(GitWorktreesDataKeys.SELECTED_WORKTREE))
     }
 
     @Test
