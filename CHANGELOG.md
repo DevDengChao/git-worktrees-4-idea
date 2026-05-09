@@ -46,3 +46,8 @@
 
 - Configure the plugin for IntelliJ Platform build `252` and newer.
 - Configure GitHub release publishing through signed JetBrains Marketplace upload using repository secrets.
+
+[Unreleased]: https://github.com/devdengchao/git-worktrees-4-idea/compare/2026.0509.0...HEAD
+[1.1.0]: https://github.com/devdengchao/git-worktrees-4-idea/compare/1.0.0...1.1.0
+[1.0.0]: https://github.com/devdengchao/git-worktrees-4-idea/commits/1.0.0
+[2026.0509.0]: https://github.com/devdengchao/git-worktrees-4-idea/compare/1.1.0...2026.0509.0
