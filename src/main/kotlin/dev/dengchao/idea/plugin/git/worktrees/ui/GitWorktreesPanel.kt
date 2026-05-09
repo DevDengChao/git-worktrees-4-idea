@@ -35,7 +35,6 @@ import java.awt.BorderLayout
 import java.awt.Dimension
 import java.awt.Graphics
 import java.awt.Graphics2D
-import java.awt.Point
 import java.awt.Rectangle
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
@@ -99,6 +98,7 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
     private val collapsedRepositoryRoots = mutableSetOf<String>()
     private var snapshots: List<RepositoryWorktreesSnapshot> = emptyList()
     private var visibleRows: List<WorktreeTableRow> = emptyList()
+    private var repositoryRowIndices: List<Int> = emptyList()
 
     init {
         initToolbar()
@@ -154,6 +154,9 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
         }
 
         tableModel.fireTableDataChanged()
+        repositoryRowIndices = visibleRows.mapIndexedNotNull { index, row ->
+            index.takeIf { row is RepositoryRow }
+        }
         restoreSelection(selectedPaths)
     }
 
@@ -532,18 +535,17 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
         val visibleRect = table.visibleRect
         if (visibleRect.height <= 0) return null
 
-        val topRow = table.rowAtPoint(Point(visibleRect.x + 1, visibleRect.y + 1))
+        val topRow = table.rowAtPoint(visibleRect.location)
         if (topRow < 0 || visibleRows.getOrNull(topRow) is RepositoryRow) return null
 
-        val stickyRowIndex = (topRow downTo 0).firstOrNull { row -> visibleRows[row] is RepositoryRow } ?: return null
-        val nextRepositoryRow = ((stickyRowIndex + 1) until visibleRows.size).firstOrNull { row ->
-            visibleRows[row] is RepositoryRow
-        }
+        val stickyRowIndex = repositoryRowIndices.lastOrNull { row -> row <= topRow } ?: return null
+        val nextRepositoryRow = repositoryRowIndices.firstOrNull { row -> row > stickyRowIndex }
+        val stickyRowHeight = table.getCellRect(stickyRowIndex, 0, true).height
 
         var stickyY = visibleRect.y
         if (nextRepositoryRow != null) {
             val nextRowY = table.getCellRect(nextRepositoryRow, 0, true).y
-            stickyY = minOf(stickyY, nextRowY - table.rowHeight)
+            stickyY = minOf(stickyY, nextRowY - stickyRowHeight)
         }
         return StickyRepositoryRowState(stickyRowIndex, stickyY)
     }
@@ -695,24 +697,28 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
             if (visibleRect.height <= 0) return
 
             val previousClip = graphics.clip
-            graphics.clip = Rectangle(visibleRect.x, visibleRect.y, visibleRect.width, rowHeight)
-            for (column in 0 until columnCount) {
-                val sourceRect = getCellRect(stickyRow.rowIndex, column, true)
-                val paintRect = Rectangle(sourceRect.x, stickyRow.y, sourceRect.width, rowHeight)
-                val renderer = getCellRenderer(stickyRow.rowIndex, column)
-                val component = prepareRenderer(renderer, stickyRow.rowIndex, column)
-                rendererPane.paintComponent(
-                    graphics,
-                    component,
-                    this,
-                    paintRect.x,
-                    paintRect.y,
-                    paintRect.width,
-                    paintRect.height,
-                    true,
-                )
+            val stickyRowHeight = getCellRect(stickyRow.rowIndex, 0, true).height
+            try {
+                graphics.setClip(Rectangle(visibleRect.x, visibleRect.y, visibleRect.width, stickyRowHeight))
+                for (column in 0 until columnCount) {
+                    val sourceRect = getCellRect(stickyRow.rowIndex, column, true)
+                    val paintRect = Rectangle(sourceRect.x, stickyRow.y, sourceRect.width, stickyRowHeight)
+                    val renderer = getCellRenderer(stickyRow.rowIndex, column)
+                    val component = prepareRenderer(renderer, stickyRow.rowIndex, column)
+                    rendererPane.paintComponent(
+                        graphics,
+                        component,
+                        this,
+                        paintRect.x,
+                        paintRect.y,
+                        paintRect.width,
+                        paintRect.height,
+                        true,
+                    )
+                }
+            } finally {
+                graphics.clip = previousClip
             }
-            graphics.clip = previousClip
         }
     }
 

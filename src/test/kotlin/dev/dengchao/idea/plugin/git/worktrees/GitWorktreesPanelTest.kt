@@ -415,8 +415,11 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
             ),
         )
 
-        val nextRepositoryTop = panel.rowTopForTests(4)
-        panel.scrollToYForTests(nextRepositoryTop - panel.rowHeightForTests() / 2)
+        val secondRepositoryRow = panel.visibleRowLabelsForTests().indexOf("second")
+        assertTrue(secondRepositoryRow >= 0)
+        val nextRepositoryTop = panel.rowTopForTests(secondRepositoryRow)
+        val pushTransitionOffset = panel.rowHeightForTests() / 2
+        panel.scrollToYForTests(nextRepositoryTop - pushTransitionOffset)
         assertEquals("first", panel.stickyRepositoryLabelForTests())
         assertTrue(requireNotNull(panel.stickyRepositoryYOffsetForTests()) < 0)
 
