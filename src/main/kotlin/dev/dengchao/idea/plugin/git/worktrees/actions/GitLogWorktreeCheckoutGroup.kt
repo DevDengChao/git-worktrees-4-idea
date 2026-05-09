@@ -62,7 +62,7 @@ class GitLogWorktreeCheckoutGroup private constructor(
         repository: GitRepository,
         shortHash: String,
     ): Array<AnAction> {
-        nativeGroup?.let { return it.getChildren(e) }
+        nativeGroup?.let { return it.directChildren(e) }
 
         val refNames = localBranchNames(e, repository)
         val hasBranchItems = refNames.isNotEmpty()
@@ -88,14 +88,14 @@ class GitLogWorktreeCheckoutGroup private constructor(
     private fun replaceCheckoutAction(
         action: AnAction,
         contexts: Map<String, BranchUsedByWorktreeContext>,
-        e: AnActionEvent?,
+        e: AnActionEvent,
     ): AnAction {
         val context = checkoutContextForAction(action, contexts)
         if (context != null) return CheckoutLinkedWorktreeBranchAction(context)
 
         if (action !is ActionGroup) return action
 
-        return copyGroup(action, action.getChildren(e).map { replaceCheckoutAction(it, contexts, e) })
+        return copyGroup(action, action.directChildren(e).map { replaceCheckoutAction(it, contexts, e) })
     }
 
     private fun checkoutContextForAction(
@@ -173,6 +173,10 @@ internal fun copyGroup(
     group.templatePresentation.description = original.templatePresentation.description
     group.templatePresentation.icon = original.templatePresentation.icon
     return group
+}
+
+internal fun ActionGroup.directChildren(e: AnActionEvent): Array<AnAction> {
+    return e.updateSession.children(this).toTypedArray()
 }
 
 internal fun Any.readFieldValue(fieldName: String): Any? {
