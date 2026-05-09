@@ -31,6 +31,7 @@ class RemoveSelectedWorktreeAction : DumbAwareAction(
 
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
+        if (!PaidActionGuard.checkAndNotify(project)) return
         val panel = e.getData(GitWorktreesDataKeys.PANEL)
         val service = GitWorktreesOperationsService.getInstance(project)
         val selectedWorktrees = e.getData(GitWorktreesDataKeys.SELECTED_WORKTREES).orEmpty()

@@ -77,6 +77,18 @@ Repository rows keep large projects organized. Each Git root has its own worktre
 - IntelliJ Platform IDE build `252` or newer.
 - Bundled Git plugin (`Git4Idea`) enabled.
 
+### Freemium Pricing
+
+| Feature | Free | Pro |
+|---------|------|-----|
+| View, filter, sort, search, refresh worktree list | ✅ | ✅ |
+| Open worktree | ✅ | ✅ |
+| Checkout worktree branch | — | ✅ |
+| Delete Worktree | — | ✅ |
+| Git Branch / Git Log worktree-aware checkout/delete | — | ✅ |
+
+Start a free trial or purchase GW4I Pro on JetBrains Marketplace.
+
 ## 中文
 
 在 IntelliJ IDEA 里集中查看、过滤、切换和删除 Git worktree。
@@ -152,6 +164,18 @@ Repository rows keep large projects organized. Each Git root has its own worktre
 
 - IntelliJ Platform IDE build `252` 或更新版本。
 - 需要启用 IDE 内置 Git 插件 (`Git4Idea`)。
+
+### Freemium 定价
+
+| 功能 | 免费 | Pro |
+|------|------|-----|
+| 查看、过滤、排序、搜索、刷新 worktree 列表 | ✅ | ✅ |
+| 打开 worktree | ✅ | ✅ |
+| Checkout / 切换 worktree 分支 | — | ✅ |
+| Delete Worktree | — | ✅ |
+| Git Branch / Git Log worktree-aware checkout/delete | — | ✅ |
+
+在 JetBrains Marketplace 开始免费试用或购买 GW4I Pro。
 <!-- Plugin description end -->
 
 ## 开发

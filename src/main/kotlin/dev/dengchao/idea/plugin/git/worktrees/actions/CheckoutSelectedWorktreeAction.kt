@@ -30,6 +30,7 @@ class CheckoutSelectedWorktreeAction : DumbAwareAction(
 
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
+        if (!PaidActionGuard.checkAndNotify(project)) return
         val repository = e.getData(GitWorktreesDataKeys.CURRENT_REPOSITORY) ?: return
         val worktree = e.getData(GitWorktreesDataKeys.SELECTED_WORKTREE) ?: return
         val branchName = worktree.branchName ?: return

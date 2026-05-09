@@ -31,6 +31,23 @@ class PluginXmlTest {
         assertTrue(nestedApplicationListeners.isEmpty())
     }
 
+    @Test
+    fun `test product descriptor declares freemium parameters`() {
+        val document = DocumentBuilderFactory.newInstance()
+            .newDocumentBuilder()
+            .parse(Paths.get("src/main/resources/META-INF/plugin.xml").toFile())
+        val root = document.documentElement
+
+        val descriptors = root.childElements("product-descriptor")
+        assertEquals("plugin.xml must contain exactly one product-descriptor", 1, descriptors.size)
+
+        val descriptor = descriptors.single()
+        assertEquals("PGWFI", descriptor.getAttribute("code"))
+        assertEquals("true", descriptor.getAttribute("optional"))
+        assertEquals("20260509", descriptor.getAttribute("release-date"))
+        assertEquals("20260509", descriptor.getAttribute("release-version"))
+    }
+
     private fun Element.childElements(tagName: String): List<Element> {
         return (0 until childNodes.length)
             .map { childNodes.item(it) }

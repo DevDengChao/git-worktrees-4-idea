@@ -5,6 +5,7 @@ import dev.dengchao.idea.plugin.git.worktrees.services.GitWorktreesOperationsSer
 
 internal object GitWorktreesBranchActions {
     fun checkout(context: BranchUsedByWorktreeContext) {
+        if (!PaidActionGuard.checkAndNotify(context.repository.project)) return
         val service = GitWorktreesOperationsService.getInstance(context.repository.project)
         if (!service.askCheckoutUsedByWorktreeConfirmation(context.branchName, context.worktree.path)) return
 
@@ -12,6 +13,7 @@ internal object GitWorktreesBranchActions {
     }
 
     fun delete(context: BranchUsedByWorktreeContext) {
+        if (!PaidActionGuard.checkAndNotify(context.repository.project)) return
         val service = GitWorktreesOperationsService.getInstance(context.repository.project)
         val decision = service.askBranchDeletionDecision(context.branchName, context.worktree.path)
         if (decision == DeleteWorktreeBranchDecision.CANCEL) return

@@ -742,4 +742,70 @@ class GitLogWorktreeActionsTest : LightPlatform4TestCase() {
             events += "native delete"
         }
     }
+
+    // ---- Freemium / licensing gate tests ----
+
+    @Test
+    fun `test Git Log checkout branch action blocked when not licensed`() {
+        setupLicenseBlocked()
+        val events = mutableListOf<String>()
+        val repository = gitRepository(rootPath = "/project/root", currentBranchName = "master") {
+            events += "refresh"
+        }
+        val worktree = WorktreeInfo(
+            path = "/project/feature-tree",
+            branchName = "feature",
+            isMain = false,
+            isCurrent = false,
+            isLocked = false,
+            isPrunable = false,
+        )
+        configureService(repository, worktree, events)
+
+        val group = GitLogWorktreeCheckoutGroup()
+        val children = group.getChildren(logEvent(repository, "feature"))
+        val checkoutGroup = children.single() as ActionGroup
+        val checkoutAction = checkoutGroup.getChildren(TestActionEvent()).single { it.templatePresentation.text == "feature" }
+
+        checkoutAction.actionPerformed(TestActionEvent())
+
+        assertTrue("Checkout service must not be called when not licensed", events.isEmpty())
+    }
+
+    @Test
+    fun `test Git Log delete branch action blocked when not licensed`() {
+        setupLicenseBlocked()
+        val events = mutableListOf<String>()
+        val repository = gitRepository(rootPath = "/project/root", currentBranchName = "master")
+        val worktree = WorktreeInfo(
+            path = "/project/feature-tree",
+            branchName = "feature",
+            isMain = false,
+            isCurrent = false,
+            isLocked = false,
+            isPrunable = false,
+        )
+        configureService(repository, worktree, events)
+
+        val group = GitLogWorktreeBranchOperationGroup()
+        val branchGroup = group.getChildren(logEvent(repository, "feature"))
+            .filterIsInstance<ActionGroup>()
+            .single { it.templatePresentation.text?.contains("feature") == true }
+        val deleteAction = findAction(branchGroup, "Delete Branch / Worktree")
+
+        deleteAction.actionPerformed(TestActionEvent())
+
+        assertTrue("Delete service must not be called when not licensed", events.isEmpty())
+    }
+
+    private fun setupLicenseBlocked() {
+        dev.dengchao.idea.plugin.git.worktrees.licensing.Gw4iLicense.overrideForTests(
+            dev.dengchao.idea.plugin.git.worktrees.licensing.Gw4iLicense.LicenseStatus.BLOCKED,
+            testRootDisposable,
+        )
+        dev.dengchao.idea.plugin.git.worktrees.actions.PaidActionGuard.overrideNotifyForTests(
+            notify = { /* swallow dialog in tests */ },
+            parentDisposable = testRootDisposable,
+        )
+    }
 }

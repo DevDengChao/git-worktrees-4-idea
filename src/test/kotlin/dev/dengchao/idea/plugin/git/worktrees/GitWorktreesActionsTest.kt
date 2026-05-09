@@ -517,4 +517,163 @@ class GitWorktreesActionsTest : LightPlatform4TestCase() {
 
         override fun hashCode(): Int = filePath.hashCode()
     }
+
+    // ---- Freemium / licensing gate tests ----
+
+    @Test
+    fun `test CheckoutSelectedWorktreeAction does not call service when not licensed`() {
+        setupLicenseBlocked()
+        val action = CheckoutSelectedWorktreeAction()
+        val events = mutableListOf<String>()
+        val repository = gitRepository(currentBranchName = "master")
+        val worktree = WorktreeInfo(
+            path = "/tmp/feature-tree",
+            branchName = "feature",
+            isMain = false,
+            isCurrent = false,
+            isLocked = false,
+            isPrunable = false,
+        )
+        val service = GitWorktreesOperationsService.getInstance(project)
+        service.overrideGitOperationsForTests(
+            checkoutRunner = { _, branch, _ ->
+                events += "checkout $branch"
+                GitWorktreesOperationsService.CheckoutResult(
+                    git4idea.commands.GitCommandResult(false, 0, emptyList(), emptyList()),
+                    hasConflictingChanges = false,
+                )
+            },
+            parentDisposable = testRootDisposable,
+        )
+
+        action.actionPerformed(actionEvent(worktree, repository))
+
+        assertTrue("Checkout must not be called when not licensed", events.isEmpty())
+    }
+
+    @Test
+    fun `test CheckoutSelectedWorktreeAction calls service when licensed`() {
+        setupLicenseAllowed()
+        val action = CheckoutSelectedWorktreeAction()
+        val events = mutableListOf<String>()
+        val repository = gitRepository(currentBranchName = "master")
+        val worktree = WorktreeInfo(
+            path = "/tmp/feature-tree",
+            branchName = "feature",
+            isMain = false,
+            isCurrent = false,
+            isLocked = false,
+            isPrunable = false,
+        )
+        val service = GitWorktreesOperationsService.getInstance(project)
+        service.overrideGitOperationsForTests(
+            checkoutRunner = { _, branch, force ->
+                events += "checkout $branch force=$force"
+                GitWorktreesOperationsService.CheckoutResult(
+                    git4idea.commands.GitCommandResult(false, 0, emptyList(), emptyList()),
+                    hasConflictingChanges = false,
+                )
+            },
+            parentDisposable = testRootDisposable,
+        )
+        service.overrideTaskRunnersForTests(
+            backgroundTaskRunner = { _, runTask, onFinished -> runTask(); onFinished() },
+            parentDisposable = testRootDisposable,
+        )
+
+        action.actionPerformed(actionEvent(worktree, repository))
+
+        assertEquals(listOf("checkout feature force=false"), events)
+    }
+
+    @Test
+    fun `test RemoveSelectedWorktreeAction does not call service when not licensed`() {
+        setupLicenseBlocked()
+        val action = RemoveSelectedWorktreeAction()
+        val events = mutableListOf<String>()
+        val repository = gitRepository(currentBranchName = "master")
+        val worktree = WorktreeInfo(
+            path = "/tmp/feature-tree",
+            branchName = "feature",
+            isMain = false,
+            isCurrent = false,
+            isLocked = false,
+            isPrunable = false,
+        )
+        val service = GitWorktreesOperationsService.getInstance(project)
+        service.overrideGitOperationsForTests(
+            removeWorktreeRunner = { _, path ->
+                events += "remove $path"
+                git4idea.commands.GitCommandResult(false, 0, emptyList(), emptyList())
+            },
+            parentDisposable = testRootDisposable,
+        )
+
+        action.actionPerformed(actionEvent(worktree, repository))
+
+        assertTrue("Remove must not be called when not licensed", events.isEmpty())
+    }
+
+    @Test
+    fun `test CheckoutSelectedWorktreeAction visible and enabled when license status is unknown`() {
+        // UNKNOWN means LicensingFacade not yet available (early startup) — action must remain accessible
+        dev.dengchao.idea.plugin.git.worktrees.licensing.Gw4iLicense.overrideForTests(
+            dev.dengchao.idea.plugin.git.worktrees.licensing.Gw4iLicense.LicenseStatus.UNKNOWN,
+            testRootDisposable,
+        )
+        setupGuardNotify()
+        val action = CheckoutSelectedWorktreeAction()
+        val events = mutableListOf<String>()
+        val repository = gitRepository(currentBranchName = "master")
+        val worktree = WorktreeInfo(
+            path = "/tmp/feature-tree",
+            branchName = "feature",
+            isMain = false,
+            isCurrent = false,
+            isLocked = false,
+            isPrunable = false,
+        )
+        val service = GitWorktreesOperationsService.getInstance(project)
+        service.overrideGitOperationsForTests(
+            checkoutRunner = { _, branch, force ->
+                events += "checkout $branch force=$force"
+                GitWorktreesOperationsService.CheckoutResult(
+                    git4idea.commands.GitCommandResult(false, 0, emptyList(), emptyList()),
+                    hasConflictingChanges = false,
+                )
+            },
+            parentDisposable = testRootDisposable,
+        )
+        service.overrideTaskRunnersForTests(
+            backgroundTaskRunner = { _, runTask, onFinished -> runTask(); onFinished() },
+            parentDisposable = testRootDisposable,
+        )
+
+        action.actionPerformed(actionEvent(worktree, repository))
+
+        // With UNKNOWN status the guard passes through — service is invoked
+        assertEquals(listOf("checkout feature force=false"), events)
+    }
+
+    private fun setupLicenseBlocked() {
+        dev.dengchao.idea.plugin.git.worktrees.licensing.Gw4iLicense.overrideForTests(
+            dev.dengchao.idea.plugin.git.worktrees.licensing.Gw4iLicense.LicenseStatus.BLOCKED,
+            testRootDisposable,
+        )
+        setupGuardNotify()
+    }
+
+    private fun setupLicenseAllowed() {
+        dev.dengchao.idea.plugin.git.worktrees.licensing.Gw4iLicense.overrideForTests(
+            dev.dengchao.idea.plugin.git.worktrees.licensing.Gw4iLicense.LicenseStatus.ALLOWED,
+            testRootDisposable,
+        )
+    }
+
+    private fun setupGuardNotify() {
+        dev.dengchao.idea.plugin.git.worktrees.actions.PaidActionGuard.overrideNotifyForTests(
+            notify = { /* swallow dialog in tests */ },
+            parentDisposable = testRootDisposable,
+        )
+    }
 }

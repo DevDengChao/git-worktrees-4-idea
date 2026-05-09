@@ -3,6 +3,11 @@
     <name>Git Worktrees | GW4I</name>
     <vendor email="2325690622@qq.com">DengChao</vendor>
 
+    <product-descriptor code="PGWFI"
+                        release-date="20260509"
+                        release-version="20260509"
+                        optional="true"/>
+
     <depends>com.intellij.modules.platform</depends>
     <depends>Git4Idea</depends>
 
