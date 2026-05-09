@@ -707,7 +707,7 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
                     val paintRect = Rectangle(sourceRect.x, stickyRow.y, sourceRect.width, stickyRow.height)
                     val renderer = getCellRenderer(stickyRow.rowIndex, column)
                     val component = prepareRenderer(renderer, stickyRow.rowIndex, column)
-                    rendererPane.paintComponent(
+                    SwingUtilities.paintComponent(
                         graphics,
                         component,
                         this,
@@ -715,7 +715,6 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
                         paintRect.y,
                         paintRect.width,
                         paintRect.height,
-                        true,
                     )
                 }
             } finally {
