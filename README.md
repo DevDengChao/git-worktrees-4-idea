@@ -15,6 +15,7 @@ Manage linked Git worktrees from inside IntelliJ IDEA.
 - **Sort one or more columns inside every repository group.** Toggle ascending, descending, and unsorted order per column while keeping roots readable.
 - **Use Speed Search with visible match highlights.** Type to jump to matching rows and see matched fragments highlighted in the table.
 - **Work naturally in multi-root projects.** Repository rows group worktrees from `console`, `api`, `android`, or any other Git root in the project.
+- **Keep repository context while scrolling.** Long lists keep the current repository row pinned until the next repository group pushes it away.
 - **Collapse repository groups when you need a tighter view.** Use the chevron, double-click a repository row, or the context menu to hide or show its worktrees.
 - **Open, checkout, refresh, and delete worktrees from the toolbar or context menu.**
 - **Keep normal Git branch workflows worktree-aware.** Git Branch and Git Log branch-label menus can offer Checkout Anyway or Delete Branch / Worktree when a branch is already used by another worktree.
@@ -47,15 +48,19 @@ Use IntelliJ table Speed Search to jump through visible worktree rows, with matc
 
 Repository rows keep large projects organized. Each Git root has its own worktree rows, current worktree marker, branch names, and filesystem locations.
 
+When the table is long, the active repository row stays visible at the top of the scroll area until the next repository group pushes it away.
+
 ### Features
 
 - Open the Worktrees tab from the Git main menu or the Git tool window drop-down.
 - Reuse a closable `Worktrees` tab inside the Version Control / Git tool window; fall back to the standalone `Git Worktrees` tool window when needed.
 - List linked worktrees using `git worktree list --porcelain`.
 - Show `Worktree`, `Branch`, and `Location` columns.
+- Show worktree locations relative to their Git root when possible, and use absolute paths for worktrees outside that root.
 - Render the main worktree in bold and mark the currently opened worktree with a check icon.
 - Display detached worktrees as `detached`.
 - Collapse or expand repository rows from the chevron, double-click, or context menu.
+- Keep the active repository row sticky while scrolling long tables, with a push-off transition when the next repository group reaches the top.
 - Keep toolbar and popup actions in sync: Refresh, Checkout, Open, and Delete Worktree.
 - Open the selected worktree as a project by double-clicking or using Open.
 - Checkout a selected worktree branch in the current repository with `--ignore-other-worktrees`.
@@ -71,6 +76,7 @@ Repository rows keep large projects organized. Each Git root has its own worktre
 - Mark the Worktrees tab entry with `By GW4I` in the Git menu and show a compact provider note in the panel toolbar.
 - Refresh each affected repository after Git operations and show success or failure notifications.
 - Defer best-effort leftover directory cleanup after single and bulk deletion, reducing visible task time on Windows.
+- Use long-path-safe cleanup for leftover Windows directories after Git has already unregistered a worktree.
 
 ### Requirements
 
@@ -91,6 +97,7 @@ Repository rows keep large projects organized. Each Git root has its own worktre
 - **在每个仓库分组内按一列或多列排序。** 每列排序按钮支持升序、降序和取消排序，同时保持 Git root 分组清晰。
 - **支持 Speed Search 和命中高亮。** 直接键入关键词即可定位匹配行，并在表格里高亮命中片段。
 - **自然支持多 root 项目。** `console`、`api`、`android` 等多个 Git root 会按仓库分组展示。
+- **滚动时保持仓库上下文。** 长列表会把当前仓库分组行固定在顶部，直到下一个仓库分组把它推走。
 - **需要更紧凑视图时可以折叠仓库分组。** 可通过左侧箭头、双击仓库行或右键菜单隐藏和展开该仓库下的 worktree。
 - **通过工具栏或右键菜单打开、切换、刷新和删除 worktree。**
 - **让常用 Git 分支流程感知 worktree。** 当分支已被另一个 worktree 使用时，Git Branch 菜单和 Git Log 分支标签菜单会提供 Checkout Anyway 或 Delete Branch / Worktree。
@@ -123,15 +130,19 @@ Repository rows keep large projects organized. Each Git root has its own worktre
 
 仓库分组行会把大型项目整理清楚。每个 Git root 都有自己的 worktree 行、当前 worktree 标记、分支名和文件系统路径。
 
+当列表很长时，当前仓库分组行会固定在滚动区域顶部，直到下一个仓库分组到达顶部并把它推走。
+
 ### 功能
 
 - 从 Git 主菜单或 Git 工具窗口下拉菜单打开 Worktrees 标签页。
 - 优先复用 Version Control / Git 工具窗口内可关闭的 `Worktrees` 标签页；必要时回退到独立的 `Git Worktrees` 工具窗口。
 - 使用 `git worktree list --porcelain` 列出 linked worktree。
 - 展示 `Worktree`、`Branch` 和 `Location` 三列。
+- Worktree 位于当前 Git root 内时，`Location` 显示相对路径；位于 root 外时，回退显示绝对路径。
 - 主 worktree 加粗显示，当前打开的 worktree 显示勾选图标。
 - detached HEAD worktree 显示为 `detached`。
 - 可通过左侧箭头、双击或右键菜单折叠和展开仓库行。
+- 长表格滚动时，当前仓库分组行会固定在顶部，并在下一个仓库分组到达时自然推走。
 - 工具栏和右键菜单保持一致：Refresh、Checkout、Open、Delete Worktree。
 - 双击或点击 Open，可把选中的 worktree 作为项目打开。
 - 使用 `--ignore-other-worktrees` 在当前仓库切换到选中 worktree 的分支。
@@ -147,6 +158,7 @@ Repository rows keep large projects organized. Each Git root has its own worktre
 - 在 Git 菜单的 Worktrees 入口显示 `By GW4I`，并在面板工具栏显示紧凑的来源说明。
 - Git 操作后刷新受影响仓库，并通过通知提示成功或失败。
 - 单个和批量删除后都把残留目录清理放到后台尽力执行，降低 Windows 下可见删除任务的等待时间。
+- Git 已经 unregister worktree 后，Windows 残留目录清理会使用长路径安全的处理方式。
 
 ### 环境要求
 

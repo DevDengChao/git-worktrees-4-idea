@@ -4,6 +4,22 @@
 
 ## [Unreleased]
 
+## [2026.0509.1] - 2026-05-09
+
+### Added
+
+- Keep the active repository group row visible while scrolling long Worktrees tables, with a push-off transition as the next repository reaches the top.
+
+### Changed
+
+- Refresh the README and Marketplace promotional copy so it matches the current table, branch menu, and deletion behavior.
+- Show in-repository worktree locations relative to their Git root while keeping absolute paths for worktrees outside that root.
+
+### Fixed
+
+- Use long-path-safe cleanup for leftover Windows worktree directories after Git unregisters the worktree.
+- Use absolute GitHub raw screenshot URLs in the README so Marketplace pages can render the promotional images.
+
 ## [2026.0509.0] - 2026-05-09
 
 ### Changed
