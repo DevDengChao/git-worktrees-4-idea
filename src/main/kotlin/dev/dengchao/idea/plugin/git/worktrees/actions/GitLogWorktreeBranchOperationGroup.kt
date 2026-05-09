@@ -43,7 +43,7 @@ class GitLogWorktreeBranchOperationGroup private constructor(
             .repositories()
             .firstOrNull { it.root == commit.root }
             ?: return AnAction.EMPTY_ARRAY
-        val nativeChildren = nativeGroup?.getChildren(e) ?: AnAction.EMPTY_ARRAY
+        val nativeChildren = nativeGroup?.directChildren(e) ?: AnAction.EMPTY_ARRAY
         val contexts = BranchUsedByWorktreeContextResolver.fromGitLogEvent(e, repository)
             .associateBy { it.branchName }
         if (nativeChildren.isEmpty() && contexts.isNotEmpty()) {
@@ -67,7 +67,7 @@ class GitLogWorktreeBranchOperationGroup private constructor(
         action: AnAction,
         contexts: Map<String, BranchUsedByWorktreeContext>,
         currentContext: BranchUsedByWorktreeContext?,
-        e: AnActionEvent?,
+        e: AnActionEvent,
     ): AnAction {
         val actionText = action.templatePresentation.text.orEmpty()
         val context = currentContext
@@ -81,7 +81,7 @@ class GitLogWorktreeBranchOperationGroup private constructor(
 
         return copyGroup(
             action,
-            action.getChildren(e).map { replaceDeleteAction(it, contexts, context, e) },
+            action.directChildren(e).map { replaceDeleteAction(it, contexts, context, e) },
         )
     }
 
