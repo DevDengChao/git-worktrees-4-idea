@@ -124,7 +124,7 @@ changelog {
     groups.empty()
     repositoryUrl = providers.gradleProperty("pluginRepositoryUrl")
     versionPrefix = ""
-    // Accept date-style release versions such as 2026.509.0 (new format) and 2026.0509.0 (legacy) alongside regular SemVer tags.
+    // Accept date-style release versions such as 2026.509.0 (new format, MDD = 101–1231) and 2026.0509.0 (legacy MMDD) alongside regular SemVer tags.
     headerParserRegex = """^\[?(\d{4}\.\d{3,4}\.\d+|(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?)\]?"""
 }
 
