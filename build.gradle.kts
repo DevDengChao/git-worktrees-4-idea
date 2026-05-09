@@ -125,6 +125,8 @@ changelog {
     groups.empty()
     repositoryUrl = providers.gradleProperty("pluginRepositoryUrl")
     versionPrefix = ""
+    // Accept date-style release versions such as 2026.0509.0 alongside regular SemVer tags.
+    headerParserRegex = """^\[?(\d{4}\.\d{4}\.\d+|(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?)\]?"""
 }
 
 // Configure Gradle Kover Plugin - read more: https://kotlin.github.io/kotlinx-kover/gradle-plugin/#configuration-details

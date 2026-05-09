@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+## [2026.0509.0] - 2026-05-09
+
+### Changed
+
+- Clean up verifier-sensitive IntelliJ API usages so plugin verification stays compatible with the 2025.2 baseline and newer IDE runtimes.
+
 ## [1.1.0] - 2026-05-07
 
 ### Changed

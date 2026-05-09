@@ -1,4 +1,5 @@
 .codex-runide/
+.worktrees/
 .DS_Store
 .gradle
 .idea
