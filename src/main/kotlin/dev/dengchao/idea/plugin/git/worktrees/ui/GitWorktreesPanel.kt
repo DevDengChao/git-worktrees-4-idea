@@ -77,11 +77,11 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
             "toolwindow.GitWorktrees.filter.location",
         );
 
-        fun value(worktree: WorktreeInfo): String {
+        fun value(repository: GitRepository, worktree: WorktreeInfo): String {
             return when (this) {
                 WORKTREE_ID -> worktree.name
                 BRANCH_NAME -> worktree.branchName ?: DETACHED_BRANCH
-                LOCATION -> worktree.path
+                LOCATION -> relativeWorktreeLocation(repository, worktree)
             }
         }
     }
@@ -137,8 +137,8 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
         visibleRows = snapshots.flatMap { repositorySnapshot ->
             val repository = repositorySnapshot.repository
             val worktreeRows = repositorySnapshot.worktrees
-                .filter(::matchesFilters)
-                .let(::sortWorktrees)
+                .filter { worktree -> matchesFilters(repository, worktree) }
+                .let { worktrees -> sortWorktrees(repository, worktrees) }
                 .map { worktree -> WorkingTreeRow(repository, worktree) }
 
             if (worktreeRows.isEmpty() && hasActiveFilter()) {
@@ -373,7 +373,7 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
     private fun speedSearchText(cell: Cell): String? {
         val row = visibleRows.getOrNull(cell.row) as? WorkingTreeRow ?: return null
         val column = Column.entries.getOrNull(cell.column) ?: return null
-        return column.value(row.worktree)
+        return column.value(row.repository, row.worktree)
     }
 
     private fun createHeaderCell(column: Column): JPanel {
@@ -435,19 +435,19 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
         }
     }
 
-    private fun matchesFilters(worktree: WorktreeInfo): Boolean {
+    private fun matchesFilters(repository: GitRepository, worktree: WorktreeInfo): Boolean {
         return filters.all { (column, filter) ->
             val normalizedFilter = filter.trim()
-            normalizedFilter.isEmpty() || column.value(worktree).contains(normalizedFilter, ignoreCase = true)
+            normalizedFilter.isEmpty() || column.value(repository, worktree).contains(normalizedFilter, ignoreCase = true)
         }
     }
 
-    private fun sortWorktrees(worktrees: List<WorktreeInfo>): List<WorktreeInfo> {
+    private fun sortWorktrees(repository: GitRepository, worktrees: List<WorktreeInfo>): List<WorktreeInfo> {
         if (sortRules.isEmpty()) return worktrees
 
         return worktrees.sortedWith { left, right ->
             sortRules.firstNotNullOfOrNull { rule ->
-                val comparison = rule.column.value(left).compareTo(rule.column.value(right), ignoreCase = true)
+                val comparison = rule.column.value(repository, left).compareTo(rule.column.value(repository, right), ignoreCase = true)
                 when {
                     comparison == 0 -> null
                     rule.direction == SortDirection.ASCENDING -> comparison
@@ -633,13 +633,13 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
         override fun getValueAt(rowIndex: Int, columnIndex: Int): Any {
             return when (val row = visibleRows[rowIndex]) {
                 is RepositoryRow -> {
-                    if (columnIndex == 0) {
-                        "${row.presentationName(project)}  ${row.presentationLocation()}"
-                    } else {
-                        ""
+                    when (Column.entries[columnIndex]) {
+                        Column.WORKTREE_ID -> row.presentationName(project)
+                        Column.BRANCH_NAME -> ""
+                        Column.LOCATION -> row.presentationLocation()
                     }
                 }
-                is WorkingTreeRow -> Column.entries[columnIndex].value(row.worktree)
+                is WorkingTreeRow -> Column.entries[columnIndex].value(row.repository, row.worktree)
             }
         }
 
@@ -725,6 +725,9 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
 
     companion object {
         private const val DETACHED_BRANCH = "detached"
+        private const val RELATIVE_CURRENT_DIR = "."
+        private const val RELATIVE_PARENT_DIR = ".."
+        private const val RELATIVE_PARENT_PREFIX = "../"
         internal const val ACTION_DESCRIPTION_PROPERTY = "action.description"
         private var openWorktreeProject: (Path) -> Unit = { path ->
             ProjectUtil.openOrImport(path)
@@ -798,6 +801,18 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
                 currentClass = currentClass.superclass
             }
             return null
+        }
+
+        private fun relativeWorktreeLocation(repository: GitRepository, worktree: WorktreeInfo): String {
+            val relativePath = FileUtil.getRelativePath(repository.root.path, worktree.path, '/')
+            return relativePath
+                ?.takeIf {
+                    it.isNotBlank() &&
+                        it != RELATIVE_CURRENT_DIR &&
+                        it != RELATIVE_PARENT_DIR &&
+                        !it.startsWith(RELATIVE_PARENT_PREFIX)
+                }
+                ?: worktree.path
         }
     }
 
