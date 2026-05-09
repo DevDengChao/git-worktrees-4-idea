@@ -45,7 +45,7 @@ class PluginXmlTest {
         assertEquals("PGWFI", descriptor.getAttribute("code"))
         assertEquals("true", descriptor.getAttribute("optional"))
         assertEquals("20260509", descriptor.getAttribute("release-date"))
-        assertEquals("20260509", descriptor.getAttribute("release-version"))
+        assertEquals("2026509", descriptor.getAttribute("release-version"))
     }
 
     private fun Element.childElements(tagName: String): List<Element> {

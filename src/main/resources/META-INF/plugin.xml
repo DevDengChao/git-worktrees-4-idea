@@ -5,7 +5,7 @@
 
     <product-descriptor code="PGWFI"
                         release-date="20260509"
-                        release-version="20260509"
+                        release-version="2026509"
                         optional="true"/>
 
     <depends>com.intellij.modules.platform</depends>
