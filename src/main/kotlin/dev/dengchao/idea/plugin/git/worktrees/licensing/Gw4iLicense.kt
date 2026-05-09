@@ -43,7 +43,7 @@ object Gw4iLicense {
             LicensingFacade.getInstance()
         } catch (e: RuntimeException) {
             // IDE application may not be fully initialised yet (early startup).
-            LOG.debug("LicensingFacade not yet available", e)
+            LOG.debug("LicensingFacade not yet available (${e.javaClass.simpleName}: ${e.message})", e)
             return LicenseStatus.UNKNOWN
         }
 

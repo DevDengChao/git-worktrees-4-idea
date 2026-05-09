@@ -1,11 +1,15 @@
 package dev.dengchao.idea.plugin.git.worktrees.actions
 
+import com.intellij.ide.BrowserUtil
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.util.Disposer
 import dev.dengchao.idea.plugin.git.worktrees.Gw4iBundle
 import dev.dengchao.idea.plugin.git.worktrees.licensing.Gw4iLicense
+
+private const val MARKETPLACE_URL =
+    "https://plugins.jetbrains.com/plugin/26972-git-worktrees--gw4i"
 
 /**
  * Guards paid GW4I actions.
@@ -38,11 +42,20 @@ object PaidActionGuard {
             override(project)
             return
         }
-        Messages.showInfoMessage(
+        val result = Messages.showDialog(
             project,
             Gw4iBundle.message("gw4i.licensing.paid.feature.message"),
             Gw4iBundle.message("gw4i.licensing.paid.feature.title"),
+            arrayOf(
+                Gw4iBundle.message("gw4i.licensing.paid.feature.learn.more"),
+                Gw4iBundle.message("gw4i.licensing.paid.feature.close"),
+            ),
+            0,
+            Messages.getInformationIcon(),
         )
+        if (result == 0) {
+            BrowserUtil.browse(MARKETPLACE_URL)
+        }
     }
 
     /** Override the notification shown to users in tests. */
