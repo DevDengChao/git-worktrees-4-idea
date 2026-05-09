@@ -626,6 +626,9 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
 
     companion object {
         private const val DETACHED_BRANCH = "detached"
+        private const val RELATIVE_CURRENT_DIR = "."
+        private const val RELATIVE_PARENT_DIR = ".."
+        private const val RELATIVE_PARENT_PREFIX = "../"
         internal const val ACTION_DESCRIPTION_PROPERTY = "action.description"
         private var openWorktreeProject: (Path) -> Unit = { path ->
             ProjectUtil.openOrImport(path)
@@ -704,7 +707,12 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
         private fun relativeWorktreeLocation(repository: GitRepository, worktree: WorktreeInfo): String {
             val relativePath = FileUtil.getRelativePath(repository.root.path, worktree.path, '/')
             return relativePath
-                ?.takeIf { it.isNotBlank() && it != "." && it != ".." && !it.startsWith("../") }
+                ?.takeIf {
+                    it.isNotBlank() &&
+                        it != RELATIVE_CURRENT_DIR &&
+                        it != RELATIVE_PARENT_DIR &&
+                        !it.startsWith(RELATIVE_PARENT_PREFIX)
+                }
                 ?: worktree.path
         }
     }

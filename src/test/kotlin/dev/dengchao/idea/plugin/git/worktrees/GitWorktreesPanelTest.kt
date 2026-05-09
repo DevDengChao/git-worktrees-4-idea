@@ -139,6 +139,17 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
     }
 
     @Test
+    fun `worktree location falls back to absolute path for dot and dotdot relative paths`() {
+        val repository = gitRepository(rootPath = "/project/root", currentBranchName = "master")
+        val sameAsRoot = WorktreeInfo(path = "/project/root", branchName = "feature/same", isMain = false, isCurrent = false, isLocked = false, isPrunable = false)
+        val parentPath = WorktreeInfo(path = "/project", branchName = "feature/parent", isMain = false, isCurrent = false, isLocked = false, isPrunable = false)
+        val panel = panelWithWorktrees(repository, listOf(sameAsRoot, parentPath))
+
+        assertEquals("/project/root", panel.tableValueForTests(1, 2))
+        assertEquals("/project", panel.tableValueForTests(2, 2))
+    }
+
+    @Test
     fun `header controls live in JTable header`() {
         val repository = gitRepository(rootPath = "/project/root", currentBranchName = "master")
         val panel = panelWithWorktrees(repository, emptyList())
