@@ -38,11 +38,11 @@ dependencies {
     testRuntimeOnly(libs.junit.vintage.engine)
 
     // UI Test Robot - https://github.com/JetBrains/intellij-ui-test-robot
-    testImplementation("com.intellij.remoterobot:remote-robot:0.11.23")
-    testImplementation("com.intellij.remoterobot:remote-fixtures:0.11.23")
-    testImplementation("org.junit.jupiter:junit-jupiter-api:5.10.0")
-    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.10.0")
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.10.0")
+    testImplementation(libs.remote.robot)
+    testImplementation(libs.remote.fixtures)
+    testImplementation(libs.junit.jupiter.api)
+    testRuntimeOnly(libs.junit.jupiter.engine)
+    testRuntimeOnly(libs.junit.platform.launcher)
 
     // IntelliJ Platform Gradle Plugin Dependencies Extension - read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-dependencies-extension.html
     intellijPlatform {
@@ -175,7 +175,7 @@ intellijPlatformTesting {
             }
 
             plugins {
-                robotServerPlugin("0.11.23")
+                robotServerPlugin(libs.versions.remoteRobot.get())
             }
         }
     }
