@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+## [2026.0509.2] - 2026-05-09
+
+### Changed
+
+- Upgrade Gradle to 9.5.0, Kotlin Gradle plugin to 2.3.21, and Kover to 0.9.8 while keeping the minimum supported IntelliJ Platform build at 252.
+- Upgrade JUnit Platform and Jupiter test dependencies to 6.0.3 and centralize Remote Robot versions in the Gradle version catalog.
+- Refresh GitHub Actions dependencies used by build, release, UI test, and template cleanup workflows.
+
 ## [2026.0509.1] - 2026-05-09
 
 ### Added
