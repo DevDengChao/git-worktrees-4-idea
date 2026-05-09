@@ -8,6 +8,7 @@ import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.ui.MessageDialogBuilder
 import com.intellij.openapi.util.Disposer
+import com.intellij.openapi.util.SystemInfo
 import com.intellij.openapi.util.io.NioFiles
 import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.openapi.vcs.VcsNotifier
@@ -214,6 +215,10 @@ class GitWorktreesOperationsService(private val project: Project) {
             this.backgroundTaskRunner = ::queueBackgroundTask
             this.leftoverCleanupRunner = ::runLeftoverCleanupOnPooledThread
         }
+    }
+
+    internal fun deleteLeftoverWorktreeForTests(leftoverCleanupPath: String): Boolean {
+        return cleanupLeftoverWorktree(leftoverCleanupPath)
     }
 
     private fun defaultRepositories(): List<GitRepository> {
@@ -692,7 +697,7 @@ class GitWorktreesOperationsService(private val project: Project) {
     private fun removeWorktreeForBulk(repository: GitRepository, worktreePath: String): BulkWorktreeRemoval {
         val result = removeWorktreeRunner(repository, worktreePath)
         if (result.success()) return BulkWorktreeRemoval(removed = true)
-        if (!isDirectoryNotEmptyFailure(result)) {
+        if (!isLeftoverDirectoryFailure(result)) {
             notifyDeleteWorktreeFailed(result)
             return BulkWorktreeRemoval(removed = false)
         }
@@ -750,7 +755,7 @@ class GitWorktreesOperationsService(private val project: Project) {
     }
 
     private fun cleanupLeftoverWorktree(leftoverCleanupPath: String): Boolean {
-        val path = Path.of(leftoverCleanupPath)
+        val path = leftoverCleanupPathForIo(leftoverCleanupPath)
         if (!Files.exists(path)) return true
         if (!Files.isDirectory(path)) return false
 
@@ -767,20 +772,35 @@ class GitWorktreesOperationsService(private val project: Project) {
         worktreePath: String,
         result: GitCommandResult,
     ): Boolean {
-        if (!isDirectoryNotEmptyFailure(result)) return false
+        if (!isLeftoverDirectoryFailure(result)) return false
 
         val stillRegistered = worktrees(repository).any { normalizePath(it.path) == normalizePath(worktreePath) }
         if (stillRegistered) return false
 
-        val path = Path.of(worktreePath)
+        val path = leftoverCleanupPathForIo(worktreePath)
         if (!Files.exists(path)) return true
         if (!Files.isDirectory(path)) return false
 
         return cleanupLeftoverWorktree(worktreePath)
     }
 
-    private fun isDirectoryNotEmptyFailure(result: GitCommandResult): Boolean {
-        return result.errorOutput.any { it.contains("Directory not empty", ignoreCase = true) }
+    private fun isLeftoverDirectoryFailure(result: GitCommandResult): Boolean {
+        return result.errorOutput.any { line ->
+            line.contains("Directory not empty", ignoreCase = true) ||
+                line.contains("Filename too long", ignoreCase = true)
+        }
+    }
+
+    private fun leftoverCleanupPathForIo(leftoverCleanupPath: String): Path {
+        val path = Path.of(leftoverCleanupPath)
+        if (!SystemInfo.isWindows) return path
+
+        val absolutePath = path.toAbsolutePath().normalize().toString()
+        if (absolutePath.startsWith("\\\\?\\")) return Path.of(absolutePath)
+        if (absolutePath.startsWith("\\\\")) {
+            return Path.of("\\\\?\\UNC\\" + absolutePath.removePrefix("\\\\"))
+        }
+        return Path.of("\\\\?\\" + absolutePath)
     }
 
     internal data class CheckoutResult(

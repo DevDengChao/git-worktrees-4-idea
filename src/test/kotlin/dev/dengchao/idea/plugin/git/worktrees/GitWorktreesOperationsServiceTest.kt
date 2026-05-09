@@ -15,6 +15,7 @@ import git4idea.repo.GitRepository
 import java.lang.reflect.InvocationHandler
 import java.lang.reflect.Proxy
 import java.nio.file.Files
+import java.nio.file.Path
 import java.util.concurrent.Future
 import org.junit.Test
 
@@ -195,6 +196,35 @@ class GitWorktreesOperationsServiceTest : LightPlatform4TestCase() {
     }
 
     @Test
+    fun `test removeWorktree cleans long path leftover after git unregisters worktree`() {
+        val repository = gitRepository(project.basePath!!, currentBranchName = "master")
+        val service = GitWorktreesOperationsService.getInstance(project)
+        val leftoverDirectory = createLongPathWorktreeDirectory("gw4i-long-path-leftover-worktree")
+
+        service.overrideProvidersForTests(
+            repositoriesProvider = { listOf(repository) },
+            worktreesProvider = { emptyList() },
+            parentDisposable = testRootDisposable,
+        )
+        service.overrideGitOperationsForTests(
+            removeWorktreeRunner = { _, path ->
+                GitCommandResult(
+                    false,
+                    1,
+                    listOf("error: failed to delete '$path': Filename too long"),
+                    emptyList(),
+                )
+            },
+            parentDisposable = testRootDisposable,
+        )
+
+        val result = service.removeWorktree(repository, leftoverDirectory.toString(), notifyResult = false)
+
+        assertTrue(result)
+        assertFalse(Files.exists(leftoverDirectory))
+    }
+
+    @Test
     fun `test bulk remove worktrees only keeps branches`() {
         val repository = gitRepository(project.basePath!!, currentBranchName = "master")
         val service = GitWorktreesOperationsService.getInstance(project)
@@ -322,6 +352,67 @@ class GitWorktreesOperationsServiceTest : LightPlatform4TestCase() {
         assertFalse(Files.exists(leftoverDirectory))
         assertEquals(1, result.removedWorktrees)
         assertEquals(1, result.deletedBranches)
+    }
+
+    @Test
+    fun `test bulk remove handles filename too long as deferred leftover cleanup`() {
+        val repository = gitRepository(project.basePath!!, currentBranchName = "master")
+        val service = GitWorktreesOperationsService.getInstance(project)
+        val leftoverDirectory = Files.createTempDirectory("gw4i-bulk-long-path-leftover-worktree")
+        Files.writeString(leftoverDirectory.resolve("leftover.txt"), "leftover")
+        val events = mutableListOf<String>()
+
+        service.overrideProvidersForTests(
+            repositoriesProvider = { listOf(repository) },
+            worktreesProvider = { emptyList() },
+            parentDisposable = testRootDisposable,
+        )
+        service.overrideGitOperationsForTests(
+            removeWorktreeRunner = { _, path ->
+                events += "remove"
+                GitCommandResult(
+                    false,
+                    1,
+                    listOf("error: failed to delete '$path': Filename too long"),
+                    emptyList(),
+                )
+            },
+            deleteBranchRunner = { _, branch, _ ->
+                events += if (Files.exists(leftoverDirectory)) {
+                    "delete branch $branch before cleanup"
+                } else {
+                    "delete branch $branch after cleanup"
+                }
+                GitCommandResult(false, 0, emptyList(), emptyList())
+            },
+            parentDisposable = testRootDisposable,
+        )
+
+        val result = service.removeWorktreesWithBranchDecision(
+            targets = listOf(
+                BulkRemoveWorktreesTarget(repository, worktree(path = leftoverDirectory.toString(), branchName = "feature")),
+            ),
+            decision = DeleteWorktreeBranchDecision.DELETE_WORKTREE_AND_BRANCH,
+            notifyResult = false,
+            cleanupLeftoversImmediately = false,
+        )
+
+        assertEquals(listOf("remove", "delete branch feature before cleanup"), events)
+        assertTrue(Files.exists(leftoverDirectory))
+        assertEquals(1, result.removedWorktrees)
+        assertEquals(1, result.deletedBranches)
+        assertEquals(listOf(leftoverDirectory.toString()), result.leftoverCleanupPaths)
+    }
+
+    @Test
+    fun `test delete leftover worktree handles long local paths`() {
+        val service = GitWorktreesOperationsService.getInstance(project)
+        val leftoverDirectory = createLongPathWorktreeDirectory("gw4i-leftover-delete-long-path")
+
+        val result = service.deleteLeftoverWorktreeForTests(leftoverDirectory.toString())
+
+        assertTrue(result)
+        assertFalse(Files.exists(leftoverDirectory))
     }
 
     @Test
@@ -769,6 +860,15 @@ class GitWorktreesOperationsServiceTest : LightPlatform4TestCase() {
             isLocked = false,
             isPrunable = false,
         )
+    }
+
+    private fun createLongPathWorktreeDirectory(prefix: String): Path {
+        var current = Files.createTempDirectory(prefix)
+        while (current.toString().length <= 265) {
+            current = Files.createDirectory(current.resolve("nested-segment-for-long-path-testing"))
+        }
+        Files.writeString(current.resolve("leftover.txt"), "leftover")
+        return current
     }
 
     private fun gitRepository(
