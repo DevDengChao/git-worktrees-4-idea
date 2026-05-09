@@ -10,6 +10,8 @@ import com.intellij.openapi.actionSystem.DataSink
 import com.intellij.openapi.actionSystem.DataSnapshotProvider
 import com.intellij.openapi.actionSystem.DataContext
 import com.intellij.openapi.actionSystem.PlatformDataKeys
+import com.intellij.openapi.actionSystem.Presentation
+import com.intellij.openapi.actionSystem.UpdateSession
 import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
@@ -102,9 +104,9 @@ class GitLogWorktreeActionsTest : LightPlatform4TestCase() {
 
         assertEquals(1, children.size)
         val checkoutGroup = children.single() as ActionGroup
-        val checkoutAction = checkoutGroup.getChildren(TestActionEvent()).single { it.templatePresentation.text == "feature" }
+        val checkoutAction = checkoutGroup.getChildren(testActionEvent()).single { it.templatePresentation.text == "feature" }
 
-        checkoutAction.actionPerformed(TestActionEvent())
+        checkoutAction.actionPerformed(testActionEvent())
 
         assertEquals(
             listOf(
@@ -130,7 +132,7 @@ class GitLogWorktreeActionsTest : LightPlatform4TestCase() {
             .getChildren(logEvent(repository, "feat/admin-reward-task-query"))
         val checkoutAction = findAction(children, "feat/admin-reward-task-query")
 
-        checkoutAction.actionPerformed(TestActionEvent())
+        checkoutAction.actionPerformed(testActionEvent())
 
         assertEquals(
             listOf(
@@ -164,11 +166,11 @@ class GitLogWorktreeActionsTest : LightPlatform4TestCase() {
                 nativeDelete,
             ),
         )
-        val children = GitWorktreeBranchActionGroup(nativeGroup).getChildren(TestActionEvent())
+        val children = GitWorktreeBranchActionGroup(nativeGroup).getChildren(testActionEvent())
 
         assertEquals(3, children.size)
         assertNotSame(nativeCheckout, children[0])
-        assertSame(nativeGroup.getChildren(TestActionEvent())[1], children[1])
+        assertSame(nativeGroup.getChildren(testActionEvent())[1], children[1])
         assertNotSame(nativeDelete, children[2])
 
         val checkoutAction = wrapForBranch(children[0], repository, branchName)
@@ -204,7 +206,7 @@ class GitLogWorktreeActionsTest : LightPlatform4TestCase() {
         val nativeCheckout = NativeGitCheckoutAction(nativeEvents)
         val nativeDelete = NativeGitDeleteRefAction(nativeEvents)
         val nativeGroup = TestActionGroup("Branch", listOf(nativeCheckout, nativeDelete))
-        val children = GitWorktreeBranchActionGroup(nativeGroup).getChildren(TestActionEvent())
+        val children = GitWorktreeBranchActionGroup(nativeGroup).getChildren(testActionEvent())
 
         val checkoutAction = wrapForBranch(children[0], repository, "ordinary")
         val deleteAction = wrapForBranch(children[1], repository, "ordinary")
@@ -236,7 +238,7 @@ class GitLogWorktreeActionsTest : LightPlatform4TestCase() {
         val nativeCheckout = NativeGitCheckoutAction(nativeEvents)
         val nativeDelete = NativeGitDeleteRefAction(nativeEvents)
         val nativeGroup = TestActionGroup("Branch", listOf(nativeCheckout, nativeDelete))
-        val children = GitWorktreeBranchActionGroup(nativeGroup).getChildren(TestActionEvent())
+        val children = GitWorktreeBranchActionGroup(nativeGroup).getChildren(testActionEvent())
 
         val checkoutAction = wrapForBranch(children[0], repository, branchName)
         val deleteAction = wrapForBranch(children[1], repository, branchName)
@@ -279,11 +281,47 @@ class GitLogWorktreeActionsTest : LightPlatform4TestCase() {
             .getChildren(logEvent(repository, branchName))
 
         val checkoutAction = findAction(children, branchName)
-        checkoutAction.actionPerformed(TestActionEvent())
+        checkoutAction.actionPerformed(testActionEvent())
 
         assertEquals(
             listOf(
                 "confirm checkout $branchName /project/admin-reward-task-query",
+                "task ${Gw4iBundle.message("GitWorktrees.task.checkout.branch.title")}",
+                "checkout $branchName force=false",
+                "refresh",
+            ),
+            events,
+        )
+    }
+
+    @Test
+    fun `test Git Log checkout expands native groups through update session`() {
+        val events = mutableListOf<String>()
+        val repository = gitRepository(rootPath = "/project/root", currentBranchName = "master") {
+            events += "refresh"
+        }
+        val branchName = "feature"
+        val worktree = WorktreeInfo(
+            path = "/project/feature-tree",
+            branchName = branchName,
+            isMain = false,
+            isCurrent = false,
+            isLocked = false,
+            isPrunable = false,
+        )
+        configureService(repository, worktree, events)
+
+        val nativeBranchAction = NativeCheckoutLikeAction(repository, branchName, "feature")
+        val nativeGroup = SessionBackedActionGroup("Checkout", listOf(nativeBranchAction))
+        val children = GitLogWorktreeCheckoutGroup(nativeGroup)
+            .getChildren(logEvent(repository, branchName))
+
+        val checkoutAction = findAction(children, branchName)
+        checkoutAction.actionPerformed(testActionEvent())
+
+        assertEquals(
+            listOf(
+                "confirm checkout $branchName /project/feature-tree",
                 "task ${Gw4iBundle.message("GitWorktrees.task.checkout.branch.title")}",
                 "checkout $branchName force=false",
                 "refresh",
@@ -312,7 +350,7 @@ class GitLogWorktreeActionsTest : LightPlatform4TestCase() {
             .single { it.templatePresentation.text?.contains("feature") == true }
         val deleteAction = findAction(branchGroup, "Delete Branch / Worktree")
 
-        deleteAction.actionPerformed(TestActionEvent())
+        deleteAction.actionPerformed(testActionEvent())
 
         assertEquals(
             listOf(
@@ -357,7 +395,7 @@ class GitLogWorktreeActionsTest : LightPlatform4TestCase() {
             .single()
         val deleteAction = findAction(branchGroup, "Delete Branch / Worktree")
 
-        deleteAction.actionPerformed(TestActionEvent())
+        deleteAction.actionPerformed(testActionEvent())
 
         assertEquals(
             listOf(
@@ -507,7 +545,7 @@ class GitLogWorktreeActionsTest : LightPlatform4TestCase() {
 
     private fun logEvent(repository: GitRepository, refs: List<VcsRef>): com.intellij.openapi.actionSystem.AnActionEvent {
         val commitId = commitId(repository)
-        return TestActionEvent.createTestEvent(CustomizedDataContext.withSnapshot(DataContext.EMPTY_CONTEXT) { sink ->
+        return testActionEvent(CustomizedDataContext.withSnapshot(DataContext.EMPTY_CONTEXT) { sink ->
             sink[PlatformDataKeys.PROJECT] = project
             sink[VcsLogDataKeys.VCS_LOG_COMMIT_SELECTION] = SingleCommitSelection(commitId)
             sink[VcsLogDataKeys.VCS_LOG_REFS] = refs
@@ -515,7 +553,7 @@ class GitLogWorktreeActionsTest : LightPlatform4TestCase() {
     }
 
     private fun branchPopupEvent(repository: GitRepository, branchName: String): com.intellij.openapi.actionSystem.AnActionEvent {
-        return TestActionEvent.createTestEvent(CustomizedDataContext.withSnapshot(DataContext.EMPTY_CONTEXT) { sink ->
+        return testActionEvent(CustomizedDataContext.withSnapshot(DataContext.EMPTY_CONTEXT) { sink ->
             sink[PlatformDataKeys.PROJECT] = project
             sink[dev.dengchao.idea.plugin.git.worktrees.actions.GitBranchActionDataKeys.SELECTED_REF] =
                 GitLocalBranch(branchName)
@@ -531,7 +569,21 @@ class GitLogWorktreeActionsTest : LightPlatform4TestCase() {
         val projectContext = CustomizedDataContext.withSnapshot(DataContext.EMPTY_CONTEXT) { sink ->
             sink[PlatformDataKeys.PROJECT] = project
         }
-        return TestActionEvent.createTestEvent(CustomizedDataContext.withSnapshot(projectContext, provider))
+        return testActionEvent(CustomizedDataContext.withSnapshot(projectContext, provider))
+    }
+
+    private fun testActionEvent(dataContext: DataContext = DataContext.EMPTY_CONTEXT): com.intellij.openapi.actionSystem.AnActionEvent {
+        return TestActionEvent.createTestEvent(dataContext).apply {
+            updateSession = object : UpdateSession {
+                override fun children(actionGroup: ActionGroup): List<AnAction> {
+                    return actionGroup.getChildren(this@apply).toList()
+                }
+
+                override fun presentation(action: AnAction): Presentation {
+                    return action.templatePresentation
+                }
+            }
+        }
     }
 
     private fun wrapForBranch(action: AnAction, repository: GitRepository, branchName: String): AnAction {
@@ -700,6 +752,18 @@ class GitLogWorktreeActionsTest : LightPlatform4TestCase() {
     ) : ActionGroup(text, true) {
         override fun getChildren(e: com.intellij.openapi.actionSystem.AnActionEvent?): Array<AnAction> =
             children.toTypedArray()
+    }
+
+    private class SessionBackedActionGroup(
+        text: String,
+        private val children: List<AnAction>,
+    ) : ActionGroup(text, true) {
+        override fun getChildren(e: com.intellij.openapi.actionSystem.AnActionEvent?): Array<AnAction> {
+            check(Thread.currentThread().stackTrace.any { it.methodName == "children" && it.className.contains("GitLogWorktreeActionsTest") }) {
+                "Use AnActionEvent.updateSession instead of calling ActionGroup.getChildren directly"
+            }
+            return children.toTypedArray()
+        }
     }
 
     private class GitDeleteRefLikeDataSnapshotAction(

@@ -25,7 +25,8 @@ class GitWorktreeBranchActionGroup(
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.BGT
 
     override fun getChildren(e: AnActionEvent?): Array<AnAction> {
-        return nativeGroup?.getChildren(e)
+        if (e == null) return AnAction.EMPTY_ARRAY
+        return nativeGroup?.directChildren(e)
             ?.map(::replaceNativeBranchAction)
             ?.toTypedArray()
             ?: AnAction.EMPTY_ARRAY

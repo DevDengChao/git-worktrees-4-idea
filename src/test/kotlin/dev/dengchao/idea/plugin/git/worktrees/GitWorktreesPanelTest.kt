@@ -418,6 +418,62 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
     }
 
     @Test
+    fun `sticky repository row is visible and top-aligned while scrolling inside repository group`() {
+        val firstRepository = gitRepository(rootPath = "/project/first", currentBranchName = "master")
+        val secondRepository = gitRepository(rootPath = "/project/second", currentBranchName = "master")
+        val firstWorktrees = listOf(
+            WorktreeInfo(path = "/project/first/alpha-tree", branchName = "feature/alpha", isMain = false, isCurrent = false, isLocked = false, isPrunable = false),
+            WorktreeInfo(path = "/project/first/beta-tree", branchName = "feature/beta", isMain = false, isCurrent = false, isLocked = false, isPrunable = false),
+        )
+        val secondWorktree = WorktreeInfo(path = "/project/second/gamma-tree", branchName = "feature/gamma", isMain = false, isCurrent = false, isLocked = false, isPrunable = false)
+        val panel = panelWithWorktrees(
+            mapOf(
+                firstRepository to firstWorktrees,
+                secondRepository to listOf(secondWorktree),
+            ),
+        )
+
+        panel.scrollToRowTopForTests(1)
+
+        assertEquals("first", panel.stickyRepositoryLabelForTests())
+        assertEquals(0, panel.stickyRepositoryYOffsetForTests())
+    }
+
+    @Test
+    fun `sticky repository row is pushed out and replaced by next repository group`() {
+        val firstRepository = gitRepository(rootPath = "/project/first", currentBranchName = "master")
+        val secondRepository = gitRepository(rootPath = "/project/second", currentBranchName = "master")
+        val firstWorktrees = listOf(
+            WorktreeInfo(path = "/project/first/alpha-tree", branchName = "feature/alpha", isMain = false, isCurrent = false, isLocked = false, isPrunable = false),
+            WorktreeInfo(path = "/project/first/beta-tree", branchName = "feature/beta", isMain = false, isCurrent = false, isLocked = false, isPrunable = false),
+            WorktreeInfo(path = "/project/first/delta-tree", branchName = "feature/delta", isMain = false, isCurrent = false, isLocked = false, isPrunable = false),
+        )
+        val secondWorktrees = listOf(
+            WorktreeInfo(path = "/project/second/gamma-tree", branchName = "feature/gamma", isMain = false, isCurrent = false, isLocked = false, isPrunable = false),
+            WorktreeInfo(path = "/project/second/omega-tree", branchName = "feature/omega", isMain = false, isCurrent = false, isLocked = false, isPrunable = false),
+        )
+        val panel = panelWithWorktrees(
+            mapOf(
+                firstRepository to firstWorktrees,
+                secondRepository to secondWorktrees,
+            ),
+        )
+
+        val secondRepositoryRow = panel.visibleRowLabelsForTests().indexOf("second")
+        assertTrue(secondRepositoryRow >= 0)
+        val nextRepositoryTop = panel.rowTopForTests(secondRepositoryRow)
+        val pushTransitionOffset = panel.rowHeightForTests() / 2
+        panel.scrollToYForTests(nextRepositoryTop - pushTransitionOffset)
+        assertEquals("first", panel.stickyRepositoryLabelForTests())
+        assertTrue("Sticky row should have negative y-offset during push transition",
+            requireNotNull(panel.stickyRepositoryYOffsetForTests()) < 0)
+
+        panel.scrollToRowTopForTests(5)
+        assertEquals("second", panel.stickyRepositoryLabelForTests())
+        assertEquals(0, panel.stickyRepositoryYOffsetForTests())
+    }
+
+    @Test
     fun `collapsing one repository does not affect sibling repository groups`() {
         val firstRepository = gitRepository(rootPath = "/project/first", currentBranchName = "master")
         val secondRepository = gitRepository(rootPath = "/project/second", currentBranchName = "master")
@@ -433,6 +489,30 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
         panel.doubleClickRowForTests(0)
 
         assertEquals(listOf("first", "second", "beta-tree"), panel.visibleRowLabelsForTests())
+    }
+
+    @Test
+    fun `sticky painting does not change repository expand collapse interactions`() {
+        val firstRepository = gitRepository(rootPath = "/project/first", currentBranchName = "master")
+        val secondRepository = gitRepository(rootPath = "/project/second", currentBranchName = "master")
+        val firstWorktree = WorktreeInfo(path = "/project/first/alpha-tree", branchName = "feature/alpha", isMain = false, isCurrent = false, isLocked = false, isPrunable = false)
+        val secondWorktrees = listOf(
+            WorktreeInfo(path = "/project/second/beta-tree", branchName = "feature/beta", isMain = false, isCurrent = false, isLocked = false, isPrunable = false),
+            WorktreeInfo(path = "/project/second/gamma-tree", branchName = "feature/gamma", isMain = false, isCurrent = false, isLocked = false, isPrunable = false),
+        )
+        val panel = panelWithWorktrees(
+            mapOf(
+                firstRepository to listOf(firstWorktree),
+                secondRepository to secondWorktrees,
+            ),
+        )
+
+        panel.scrollToRowTopForTests(1)
+        assertEquals("first", panel.stickyRepositoryLabelForTests())
+
+        panel.doubleClickRowForTests(2)
+
+        assertEquals(listOf("first", "alpha-tree", "second"), panel.visibleRowLabelsForTests())
     }
 
     @Test
