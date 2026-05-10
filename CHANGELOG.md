@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+## [2026.0510.0] - 2026-05-10
+
+### Fixed
+
+- Fix Marketplace description screenshot URLs by pointing GitHub raw image links at the repository's `master` branch.
+
 ## [2026.0509.2] - 2026-05-09
 
 ### Changed

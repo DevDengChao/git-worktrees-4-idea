@@ -7,7 +7,7 @@ Manage linked Git worktrees from inside IntelliJ IDEA.
 
 **Git Worktrees | GW4I** adds a focused Worktrees tab to the Git tool window, so you can see every linked worktree across one or many Git roots without leaving the IDE.
 
-![Git Worktrees overview](https://raw.githubusercontent.com/DevDengChao/git-worktrees-4-idea/main/design/marketing/screenshots/00-overview.png)
+![Git Worktrees overview](https://raw.githubusercontent.com/DevDengChao/git-worktrees-4-idea/master/design/marketing/screenshots/00-overview.png)
 
 ### Highlights
 
@@ -26,25 +26,25 @@ Manage linked Git worktrees from inside IntelliJ IDEA.
 
 #### Header Filters
 
-![Header filters](https://raw.githubusercontent.com/DevDengChao/git-worktrees-4-idea/main/design/marketing/screenshots/01-header-filters.png)
+![Header filters](https://raw.githubusercontent.com/DevDengChao/git-worktrees-4-idea/master/design/marketing/screenshots/01-header-filters.png)
 
 Filter each column independently. The filter is case-insensitive, and repository groups disappear when none of their worktrees match.
 
 #### Column Sorting
 
-![Column sorting](https://raw.githubusercontent.com/DevDengChao/git-worktrees-4-idea/main/design/marketing/screenshots/02-column-sorting.png)
+![Column sorting](https://raw.githubusercontent.com/DevDengChao/git-worktrees-4-idea/master/design/marketing/screenshots/02-column-sorting.png)
 
 Each sort button cycles through ascending, descending, and unsorted states. Multiple active sort buttons are applied in order inside each repository group, so roots remain readable.
 
 #### Speed Search Highlighting
 
-![Speed Search highlights](https://raw.githubusercontent.com/DevDengChao/git-worktrees-4-idea/main/design/marketing/screenshots/03-speed-search-highlights.png)
+![Speed Search highlights](https://raw.githubusercontent.com/DevDengChao/git-worktrees-4-idea/master/design/marketing/screenshots/03-speed-search-highlights.png)
 
 Use IntelliJ table Speed Search to jump through visible worktree rows, with matched fragments highlighted in place.
 
 #### Multi-root Projects
 
-![Multi-root groups](https://raw.githubusercontent.com/DevDengChao/git-worktrees-4-idea/main/design/marketing/screenshots/04-multi-root-groups.png)
+![Multi-root groups](https://raw.githubusercontent.com/DevDengChao/git-worktrees-4-idea/master/design/marketing/screenshots/04-multi-root-groups.png)
 
 Repository rows keep large projects organized. Each Git root has its own worktree rows, current worktree marker, branch names, and filesystem locations.
 
@@ -89,7 +89,7 @@ When the table is long, the active repository row stays visible at the top of th
 
 **Git Worktrees | GW4I** 会在 Git 工具窗口中加入一个专门的 Worktrees 标签页，让你不用离开 IDE，就能查看一个或多个 Git root 下的全部 linked worktree。
 
-![Git Worktrees 概览](https://raw.githubusercontent.com/DevDengChao/git-worktrees-4-idea/main/design/marketing/screenshots/00-overview.png)
+![Git Worktrees 概览](https://raw.githubusercontent.com/DevDengChao/git-worktrees-4-idea/master/design/marketing/screenshots/00-overview.png)
 
 ### 功能亮点
 
@@ -108,25 +108,25 @@ When the table is long, the active repository row stays visible at the top of th
 
 #### 表头过滤
 
-![表头过滤](https://raw.githubusercontent.com/DevDengChao/git-worktrees-4-idea/main/design/marketing/screenshots/01-header-filters.png)
+![表头过滤](https://raw.githubusercontent.com/DevDengChao/git-worktrees-4-idea/master/design/marketing/screenshots/01-header-filters.png)
 
 每列都可以独立过滤。过滤不区分大小写；如果某个仓库分组下没有任何匹配的 worktree，该分组会自动隐藏。
 
 #### 列排序
 
-![列排序](https://raw.githubusercontent.com/DevDengChao/git-worktrees-4-idea/main/design/marketing/screenshots/02-column-sorting.png)
+![列排序](https://raw.githubusercontent.com/DevDengChao/git-worktrees-4-idea/master/design/marketing/screenshots/02-column-sorting.png)
 
 每个排序按钮会在升序、降序和未排序之间切换。多个已启用的排序按钮会按顺序在各自仓库分组内生效，因此多 root 结构仍然清晰。
 
 #### 快速搜索高亮
 
-![快速搜索高亮](https://raw.githubusercontent.com/DevDengChao/git-worktrees-4-idea/main/design/marketing/screenshots/03-speed-search-highlights.png)
+![快速搜索高亮](https://raw.githubusercontent.com/DevDengChao/git-worktrees-4-idea/master/design/marketing/screenshots/03-speed-search-highlights.png)
 
 使用 IntelliJ 表格 Speed Search 快速跳转到匹配行，命中的文字片段会直接在表格中高亮。
 
 #### 多 root 项目
 
-![多 root 分组](https://raw.githubusercontent.com/DevDengChao/git-worktrees-4-idea/main/design/marketing/screenshots/04-multi-root-groups.png)
+![多 root 分组](https://raw.githubusercontent.com/DevDengChao/git-worktrees-4-idea/master/design/marketing/screenshots/04-multi-root-groups.png)
 
 仓库分组行会把大型项目整理清楚。每个 Git root 都有自己的 worktree 行、当前 worktree 标记、分支名和文件系统路径。
 
