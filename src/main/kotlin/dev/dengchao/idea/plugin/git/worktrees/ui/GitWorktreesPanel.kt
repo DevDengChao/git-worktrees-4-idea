@@ -29,6 +29,7 @@ import com.intellij.util.ui.UIUtil
 import dev.dengchao.idea.plugin.git.worktrees.Gw4iBundle
 import dev.dengchao.idea.plugin.git.worktrees.model.WorktreeInfo
 import dev.dengchao.idea.plugin.git.worktrees.services.GitWorktreesOperationsService
+import dev.dengchao.idea.plugin.git.worktrees.settings.GitWorktreesProjectSettings
 import git4idea.repo.GitRepository
 import git4idea.repo.GitRepositoryChangeListener
 import java.awt.BorderLayout
@@ -77,16 +78,17 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
             "toolwindow.GitWorktrees.filter.location",
         );
 
-        fun value(repository: GitRepository, worktree: WorktreeInfo): String {
+        fun value(repository: GitRepository, worktree: WorktreeInfo, showRelativeLocations: Boolean): String {
             return when (this) {
                 WORKTREE_ID -> worktree.name
                 BRANCH_NAME -> worktree.branchName ?: DETACHED_BRANCH
-                LOCATION -> relativeWorktreeLocation(repository, worktree)
+                LOCATION -> if (showRelativeLocations) relativeWorktreeLocation(repository, worktree) else worktree.path
             }
         }
     }
 
     private val service = GitWorktreesOperationsService.getInstance(project)
+    private val settings = GitWorktreesProjectSettings.getInstance(project)
     private val tableModel = WorktreesTableModel()
     private val table = StickyWorktreesTable()
     private val filters = linkedMapOf<Column, String>().apply {
@@ -377,7 +379,7 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
     private fun speedSearchText(cell: Cell): String? {
         val row = visibleRows.getOrNull(cell.row) as? WorkingTreeRow ?: return null
         val column = Column.entries.getOrNull(cell.column) ?: return null
-        return column.value(row.repository, row.worktree)
+        return column.value(row.repository, row.worktree, settings.effectiveShowRelativeLocations())
     }
 
     private fun createHeaderCell(column: Column): JPanel {
@@ -440,18 +442,21 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
     }
 
     private fun matchesFilters(repository: GitRepository, worktree: WorktreeInfo): Boolean {
+        val showRelativeLocations = settings.effectiveShowRelativeLocations()
         return filters.all { (column, filter) ->
             val normalizedFilter = filter.trim()
-            normalizedFilter.isEmpty() || column.value(repository, worktree).contains(normalizedFilter, ignoreCase = true)
+            normalizedFilter.isEmpty() || column.value(repository, worktree, showRelativeLocations).contains(normalizedFilter, ignoreCase = true)
         }
     }
 
     private fun sortWorktrees(repository: GitRepository, worktrees: List<WorktreeInfo>): List<WorktreeInfo> {
         if (sortRules.isEmpty()) return worktrees
+        val showRelativeLocations = settings.effectiveShowRelativeLocations()
 
         return worktrees.sortedWith { left, right ->
             sortRules.firstNotNullOfOrNull { rule ->
-                val comparison = rule.column.value(repository, left).compareTo(rule.column.value(repository, right), ignoreCase = true)
+                val comparison = rule.column.value(repository, left, showRelativeLocations)
+                    .compareTo(rule.column.value(repository, right, showRelativeLocations), ignoreCase = true)
                 when {
                     comparison == 0 -> null
                     rule.direction == SortDirection.ASCENDING -> comparison
@@ -642,7 +647,8 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
                         Column.LOCATION -> row.presentationLocation()
                     }
                 }
-                is WorkingTreeRow -> Column.entries[columnIndex].value(row.repository, row.worktree)
+                is WorkingTreeRow -> Column.entries[columnIndex]
+                    .value(row.repository, row.worktree, settings.effectiveShowRelativeLocations())
             }
         }
 

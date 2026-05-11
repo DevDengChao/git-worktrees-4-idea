@@ -18,6 +18,8 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.testFramework.LightPlatform4TestCase
 import dev.dengchao.idea.plugin.git.worktrees.model.WorktreeInfo
 import dev.dengchao.idea.plugin.git.worktrees.services.GitWorktreesOperationsService
+import dev.dengchao.idea.plugin.git.worktrees.settings.GitWorktreesGlobalSettings
+import dev.dengchao.idea.plugin.git.worktrees.settings.GitWorktreesProjectSettings
 import dev.dengchao.idea.plugin.git.worktrees.ui.GitWorktreesDataKeys
 import dev.dengchao.idea.plugin.git.worktrees.ui.GitWorktreesPanel
 import git4idea.repo.GitRepository
@@ -40,6 +42,24 @@ import org.junit.Test
  * Tests verify panel data handling and selection logic.
  */
 class GitWorktreesPanelTest : LightPlatform4TestCase() {
+
+    override fun setUp() {
+        super.setUp()
+        GitWorktreesGlobalSettings.getInstance().loadState(
+            GitWorktreesGlobalSettings.State(
+                showRelativeLocations = true,
+                rememberGitWindowTab = true,
+            ),
+        )
+        GitWorktreesProjectSettings.getInstance(project).loadState(
+            GitWorktreesProjectSettings.State(
+                useProjectSettings = false,
+                showRelativeLocations = true,
+                rememberGitWindowTab = true,
+                restoreGitWindowTab = false,
+            ),
+        )
+    }
 
     @Test
     fun `test WorktreeInfo status flags`() {
@@ -147,6 +167,44 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
 
         assertEquals("/project/root", panel.tableValueForTests(1, 2))
         assertEquals("/project", panel.tableValueForTests(2, 2))
+    }
+
+    @Test
+    fun `location column renders absolute path when relative locations are disabled`() {
+        setLocationDisplaySettings(showRelativeLocations = false, useProjectSettings = false)
+        val repository = gitRepository(rootPath = "/project/root", currentBranchName = "master")
+        val worktree = WorktreeInfo(
+            path = "/project/root/root-feature",
+            branchName = "feature/login",
+            isMain = false,
+            isCurrent = false,
+            isLocked = false,
+            isPrunable = false,
+        )
+
+        val panel = panelWithWorktrees(repository, listOf(worktree))
+
+        assertEquals("/project/root/root-feature", panel.tableValueForTests(1, 2))
+    }
+
+    @Test
+    fun `location filter sort and speed search use effective display mode`() {
+        setLocationDisplaySettings(showRelativeLocations = false, useProjectSettings = false)
+        val repository = gitRepository(rootPath = "/project/root", currentBranchName = "master")
+        val alpha = WorktreeInfo(path = "/project/root/zzz-alpha", branchName = "feature/a", isMain = false, isCurrent = false, isLocked = false, isPrunable = false)
+        val beta = WorktreeInfo(path = "/project/root/aaa-beta", branchName = "feature/b", isMain = false, isCurrent = false, isLocked = false, isPrunable = false)
+        val panel = panelWithWorktrees(repository, listOf(alpha, beta))
+        val speedSearch = panel.speedSearchSupplyForTests()
+
+        panel.setFilterForTests(GitWorktreesPanel.Column.LOCATION, "/project/root/aaa")
+        assertEquals(listOf("root", "aaa-beta"), panel.visibleRowLabelsForTests())
+
+        panel.setFilterForTests(GitWorktreesPanel.Column.LOCATION, "")
+        panel.toggleSortForTests(GitWorktreesPanel.Column.LOCATION)
+        assertEquals(listOf("root", "aaa-beta", "zzz-alpha"), panel.visibleRowLabelsForTests())
+
+        speedSearch.findAndSelectElement("/project/root/zzz-alpha")
+        assertSame(alpha, panel.dataForTests(GitWorktreesDataKeys.SELECTED_WORKTREE))
     }
 
     @Test
@@ -747,6 +805,23 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
         return GitWorktreesPanel(project).apply {
             reloadSynchronouslyForTests()
         }
+    }
+
+    private fun setLocationDisplaySettings(showRelativeLocations: Boolean, useProjectSettings: Boolean) {
+        GitWorktreesGlobalSettings.getInstance().loadState(
+            GitWorktreesGlobalSettings.State(
+                showRelativeLocations = showRelativeLocations,
+                rememberGitWindowTab = true,
+            ),
+        )
+        GitWorktreesProjectSettings.getInstance(project).loadState(
+            GitWorktreesProjectSettings.State(
+                useProjectSettings = useProjectSettings,
+                showRelativeLocations = !showRelativeLocations,
+                rememberGitWindowTab = true,
+                restoreGitWindowTab = false,
+            ),
+        )
     }
 
     private fun gitRepository(rootPath: String, currentBranchName: String?): GitRepository {
