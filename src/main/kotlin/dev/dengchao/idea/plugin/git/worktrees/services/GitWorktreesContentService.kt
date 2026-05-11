@@ -160,7 +160,6 @@ class GitWorktreesContentService(private val project: Project) {
                     }
                 }
             },
-            project,
         )
     }
 
