@@ -231,7 +231,7 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
     }
 
     @Test
-    fun `provider note is shown unobtrusively at toolbar end`() {
+    fun `provider note and settings button are shown unobtrusively at toolbar end`() {
         val repository = gitRepository(rootPath = "/project/root", currentBranchName = "master")
         val panel = panelWithWorktrees(repository, emptyList())
         val table = panel.descendantsForTests().filterIsInstance<JTable>().single()
@@ -239,14 +239,25 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
         val providerNote = panel.descendantsForTests()
             .filterIsInstance<JLabel>()
             .single { it.text == Gw4iBundle.message("toolwindow.GitWorktrees.provider.note") }
-        val parent = providerNote.parent
-        val layout = parent.layout as BorderLayout
+        val settingsButton = panel.descendantsForTests()
+            .filterIsInstance<JButton>()
+            .single { it.toolTipText == Gw4iBundle.message("toolwindow.GitWorktrees.provider.settings.tooltip") }
+        val providerMetaPanel = providerNote.parent
+        val toolbarWrapper = providerMetaPanel.parent
+        val layout = toolbarWrapper.layout as BorderLayout
 
-        assertEquals(BorderLayout.EAST, layout.getConstraints(providerNote))
+        panel.setSize(900, 600)
+        panel.doLayout()
+        toolbarWrapper.doLayout()
+        providerMetaPanel.doLayout()
+
+        assertEquals(BorderLayout.EAST, layout.getConstraints(providerMetaPanel))
         assertEquals(SwingUtilities.HORIZONTAL, toolbar.orientation)
         assertFalse(SwingUtilities.isDescendingFrom(providerNote, table.tableHeader))
+        assertFalse(SwingUtilities.isDescendingFrom(settingsButton, table.tableHeader))
         assertEquals(UIUtil.getContextHelpForeground(), providerNote.foreground)
         assertTrue(providerNote.font.size2D < table.font.size2D)
+        assertTrue(providerNote.x < settingsButton.x)
     }
 
     @Test

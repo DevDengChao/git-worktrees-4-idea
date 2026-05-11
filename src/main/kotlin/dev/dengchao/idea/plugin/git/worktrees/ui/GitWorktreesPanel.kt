@@ -4,6 +4,7 @@ import com.intellij.dvcs.repo.VcsRepositoryManager
 import com.intellij.dvcs.repo.VcsRepositoryMappingListener
 import com.intellij.icons.AllIcons
 import com.intellij.ide.impl.ProjectUtil
+import com.intellij.openapi.options.ShowSettingsUtil
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.actionSystem.ActionGroup
 import com.intellij.openapi.actionSystem.ActionManager
@@ -316,16 +317,39 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
             JPanel(BorderLayout()).apply {
                 isOpaque = false
                 add(toolbar.component, BorderLayout.WEST)
-                add(providerNoteLabel(), BorderLayout.EAST)
+                add(providerMetaPanel(), BorderLayout.EAST)
             },
         )
+    }
+
+    private fun providerMetaPanel(): JPanel {
+        return JPanel(BorderLayout()).apply {
+            isOpaque = false
+            add(providerNoteLabel(), BorderLayout.WEST)
+            add(providerSettingsButton(), BorderLayout.EAST)
+        }
     }
 
     private fun providerNoteLabel(): JLabel {
         return JLabel(Gw4iBundle.message("toolwindow.GitWorktrees.provider.note")).apply {
             foreground = UIUtil.getContextHelpForeground()
             font = UIUtil.getLabelFont(UIUtil.FontSize.SMALL)
-            border = JBUI.Borders.emptyRight(8)
+            border = JBUI.Borders.emptyRight(4)
+        }
+    }
+
+    private fun providerSettingsButton(): JButton {
+        return JButton(AllIcons.General.Settings).apply {
+            toolTipText = Gw4iBundle.message("toolwindow.GitWorktrees.provider.settings.tooltip")
+            isOpaque = false
+            isContentAreaFilled = false
+            isBorderPainted = false
+            isFocusPainted = false
+            isFocusable = false
+            border = JBUI.Borders.emptyLeft(4)
+            addActionListener {
+                ShowSettingsUtil.getInstance().showSettingsDialog(project, "git.worktrees.settings")
+            }
         }
     }
 
