@@ -30,6 +30,7 @@ import com.intellij.util.ui.UIUtil
 import dev.dengchao.idea.plugin.git.worktrees.Gw4iBundle
 import dev.dengchao.idea.plugin.git.worktrees.model.WorktreeInfo
 import dev.dengchao.idea.plugin.git.worktrees.services.GitWorktreesOperationsService
+import dev.dengchao.idea.plugin.git.worktrees.settings.GitWorktreesProjectConfigurable
 import dev.dengchao.idea.plugin.git.worktrees.settings.GitWorktreesProjectSettings
 import git4idea.repo.GitRepository
 import git4idea.repo.GitRepositoryChangeListener
@@ -348,7 +349,7 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
             isFocusable = false
             border = JBUI.Borders.emptyLeft(4)
             addActionListener {
-                ShowSettingsUtil.getInstance().showSettingsDialog(project, "git.worktrees.settings")
+                ShowSettingsUtil.getInstance().showSettingsDialog(project, GitWorktreesProjectConfigurable.ID)
             }
         }
     }

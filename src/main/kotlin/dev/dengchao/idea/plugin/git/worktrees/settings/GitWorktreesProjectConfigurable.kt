@@ -15,6 +15,9 @@ import javax.swing.JPanel
 class GitWorktreesProjectConfigurable(
     private val project: Project,
 ) : SearchableConfigurable {
+    companion object {
+        const val ID: String = "git.worktrees.settings"
+    }
 
     internal enum class SettingsTarget {
         GLOBAL,
@@ -33,7 +36,7 @@ class GitWorktreesProjectConfigurable(
     private var projectShowRelativeLocations: Boolean = true
     private var projectRememberGitWindowTab: Boolean = true
 
-    override fun getId(): String = "git.worktrees.settings"
+    override fun getId(): String = ID
 
     override fun getDisplayName(): String = Gw4iBundle.message("settings.GitWorktrees.display.name")
 

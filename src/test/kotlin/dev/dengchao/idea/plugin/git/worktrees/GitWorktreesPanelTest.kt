@@ -246,6 +246,7 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
         val toolbarWrapper = providerMetaPanel.parent
         val layout = toolbarWrapper.layout as BorderLayout
 
+        // Materialize bounds before checking that the note is left of the settings icon.
         panel.setSize(900, 600)
         panel.doLayout()
         toolbarWrapper.doLayout()
