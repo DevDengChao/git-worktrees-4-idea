@@ -19,6 +19,11 @@
                     icon="/icons/toolWindowIcon.svg"
                     anchor="right"
                     secondary="true"/>
+        <postStartupActivity implementation="dev.dengchao.idea.plugin.git.worktrees.startup.GitWorktreesStartupActivity"/>
+        <projectConfigurable id="GitWorktrees.Settings"
+                             parentId="project.propVCSSupport.Mappings"
+                             displayName="Git Worktrees | GW4I"
+                             instance="dev.dengchao.idea.plugin.git.worktrees.settings.GitWorktreesProjectConfigurable"/>
     </extensions>
 
     <actions resource-bundle="messages.Gw4iBundle">

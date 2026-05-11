@@ -31,6 +31,26 @@ class PluginXmlTest {
         assertTrue(nestedApplicationListeners.isEmpty())
     }
 
+    @Test
+    fun `test project configurable is registered under Version Control mappings`() {
+        val document = DocumentBuilderFactory.newInstance()
+            .newDocumentBuilder()
+            .parse(Paths.get("src/main/resources/META-INF/plugin.xml").toFile())
+        val root = document.documentElement
+
+        val configurable = root.childElements("extensions")
+            .flatMap { it.childElements("projectConfigurable") }
+            .singleOrNull { it.getAttribute("id") == "GitWorktrees.Settings" }
+
+        assertTrue(configurable != null)
+        assertEquals("project.propVCSSupport.Mappings", configurable!!.getAttribute("parentId"))
+        assertEquals("Git Worktrees | GW4I", configurable.getAttribute("displayName"))
+        assertEquals(
+            "dev.dengchao.idea.plugin.git.worktrees.settings.GitWorktreesProjectConfigurable",
+            configurable.getAttribute("instance"),
+        )
+    }
+
     private fun Element.childElements(tagName: String): List<Element> {
         return (0 until childNodes.length)
             .map { childNodes.item(it) }

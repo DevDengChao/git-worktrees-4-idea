@@ -18,6 +18,8 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.testFramework.LightPlatform4TestCase
 import dev.dengchao.idea.plugin.git.worktrees.model.WorktreeInfo
 import dev.dengchao.idea.plugin.git.worktrees.services.GitWorktreesOperationsService
+import dev.dengchao.idea.plugin.git.worktrees.settings.GitWorktreesGlobalSettings
+import dev.dengchao.idea.plugin.git.worktrees.settings.GitWorktreesProjectSettings
 import dev.dengchao.idea.plugin.git.worktrees.ui.GitWorktreesDataKeys
 import dev.dengchao.idea.plugin.git.worktrees.ui.GitWorktreesPanel
 import git4idea.repo.GitRepository
@@ -40,6 +42,24 @@ import org.junit.Test
  * Tests verify panel data handling and selection logic.
  */
 class GitWorktreesPanelTest : LightPlatform4TestCase() {
+
+    override fun setUp() {
+        super.setUp()
+        GitWorktreesGlobalSettings.getInstance().loadState(
+            GitWorktreesGlobalSettings.State(
+                showRelativeLocations = true,
+                rememberGitWindowTab = true,
+            ),
+        )
+        GitWorktreesProjectSettings.getInstance(project).loadState(
+            GitWorktreesProjectSettings.State(
+                useProjectSettings = false,
+                showRelativeLocations = true,
+                rememberGitWindowTab = true,
+                restoreGitWindowTab = false,
+            ),
+        )
+    }
 
     @Test
     fun `test WorktreeInfo status flags`() {
@@ -150,6 +170,44 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
     }
 
     @Test
+    fun `location column renders absolute path when relative locations are disabled`() {
+        setLocationDisplaySettings(showRelativeLocations = false, useProjectSettings = false)
+        val repository = gitRepository(rootPath = "/project/root", currentBranchName = "master")
+        val worktree = WorktreeInfo(
+            path = "/project/root/root-feature",
+            branchName = "feature/login",
+            isMain = false,
+            isCurrent = false,
+            isLocked = false,
+            isPrunable = false,
+        )
+
+        val panel = panelWithWorktrees(repository, listOf(worktree))
+
+        assertEquals("/project/root/root-feature", panel.tableValueForTests(1, 2))
+    }
+
+    @Test
+    fun `location filter sort and speed search use effective display mode`() {
+        setLocationDisplaySettings(showRelativeLocations = false, useProjectSettings = false)
+        val repository = gitRepository(rootPath = "/project/root", currentBranchName = "master")
+        val alpha = WorktreeInfo(path = "/project/root/zzz-alpha", branchName = "feature/a", isMain = false, isCurrent = false, isLocked = false, isPrunable = false)
+        val beta = WorktreeInfo(path = "/project/root/aaa-beta", branchName = "feature/b", isMain = false, isCurrent = false, isLocked = false, isPrunable = false)
+        val panel = panelWithWorktrees(repository, listOf(alpha, beta))
+        val speedSearch = panel.speedSearchSupplyForTests()
+
+        panel.setFilterForTests(GitWorktreesPanel.Column.LOCATION, "/project/root/aaa")
+        assertEquals(listOf("root", "aaa-beta"), panel.visibleRowLabelsForTests())
+
+        panel.setFilterForTests(GitWorktreesPanel.Column.LOCATION, "")
+        panel.toggleSortForTests(GitWorktreesPanel.Column.LOCATION)
+        assertEquals(listOf("root", "aaa-beta", "zzz-alpha"), panel.visibleRowLabelsForTests())
+
+        speedSearch.findAndSelectElement("/project/root/zzz-alpha")
+        assertSame(alpha, panel.dataForTests(GitWorktreesDataKeys.SELECTED_WORKTREE))
+    }
+
+    @Test
     fun `header controls live in JTable header`() {
         val repository = gitRepository(rootPath = "/project/root", currentBranchName = "master")
         val panel = panelWithWorktrees(repository, emptyList())
@@ -173,7 +231,7 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
     }
 
     @Test
-    fun `provider note is shown unobtrusively at toolbar end`() {
+    fun `provider note and settings button are shown unobtrusively at toolbar end`() {
         val repository = gitRepository(rootPath = "/project/root", currentBranchName = "master")
         val panel = panelWithWorktrees(repository, emptyList())
         val table = panel.descendantsForTests().filterIsInstance<JTable>().single()
@@ -181,14 +239,28 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
         val providerNote = panel.descendantsForTests()
             .filterIsInstance<JLabel>()
             .single { it.text == Gw4iBundle.message("toolwindow.GitWorktrees.provider.note") }
-        val parent = providerNote.parent
-        val layout = parent.layout as BorderLayout
+        val settingsButton = panel.descendantsForTests()
+            .filterIsInstance<JButton>()
+            .single { it.toolTipText == Gw4iBundle.message("toolwindow.GitWorktrees.provider.settings.tooltip") }
+        val providerMetaPanel = providerNote.parent
+        val toolbarWrapper = providerMetaPanel.parent
+        val layout = toolbarWrapper.layout as BorderLayout
 
-        assertEquals(BorderLayout.EAST, layout.getConstraints(providerNote))
+        // Materialize bounds before checking that the note is left of the settings icon.
+        panel.setSize(900, 600)
+        panel.doLayout()
+        toolbarWrapper.doLayout()
+        providerMetaPanel.doLayout()
+
+        assertEquals(BorderLayout.EAST, layout.getConstraints(providerMetaPanel))
         assertEquals(SwingUtilities.HORIZONTAL, toolbar.orientation)
         assertFalse(SwingUtilities.isDescendingFrom(providerNote, table.tableHeader))
+        assertFalse(SwingUtilities.isDescendingFrom(settingsButton, table.tableHeader))
         assertEquals(UIUtil.getContextHelpForeground(), providerNote.foreground)
         assertTrue(providerNote.font.size2D < table.font.size2D)
+        assertTrue(providerNote.x < settingsButton.x)
+        assertEquals(ActionToolbar.DEFAULT_MINIMUM_BUTTON_SIZE.width, settingsButton.preferredSize.width)
+        assertEquals(ActionToolbar.DEFAULT_MINIMUM_BUTTON_SIZE.height, settingsButton.preferredSize.height)
     }
 
     @Test
@@ -747,6 +819,23 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
         return GitWorktreesPanel(project).apply {
             reloadSynchronouslyForTests()
         }
+    }
+
+    private fun setLocationDisplaySettings(showRelativeLocations: Boolean, useProjectSettings: Boolean) {
+        GitWorktreesGlobalSettings.getInstance().loadState(
+            GitWorktreesGlobalSettings.State(
+                showRelativeLocations = showRelativeLocations,
+                rememberGitWindowTab = true,
+            ),
+        )
+        GitWorktreesProjectSettings.getInstance(project).loadState(
+            GitWorktreesProjectSettings.State(
+                useProjectSettings = useProjectSettings,
+                showRelativeLocations = !showRelativeLocations,
+                rememberGitWindowTab = true,
+                restoreGitWindowTab = false,
+            ),
+        )
     }
 
     private fun gitRepository(rootPath: String, currentBranchName: String?): GitRepository {
