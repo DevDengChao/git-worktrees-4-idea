@@ -60,8 +60,6 @@
             <reference ref="GitWorktrees.Open"/>
             <separator/>
             <reference ref="GitWorktrees.Remove"/>
-            <separator/>
-            <reference ref="GitWorktrees.Refresh"/>
         </group>
 
         <action id="GitWorktrees.Branch.CheckoutIgnoreOtherWorktrees"
