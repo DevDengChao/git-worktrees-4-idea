@@ -8,6 +8,7 @@ import com.intellij.openapi.options.ShowSettingsUtil
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.actionSystem.ActionGroup
 import com.intellij.openapi.actionSystem.ActionManager
+import com.intellij.openapi.actionSystem.ActionToolbar
 import com.intellij.openapi.actionSystem.DataSink
 import com.intellij.openapi.actionSystem.UiDataProvider
 import com.intellij.openapi.application.ApplicationManager
@@ -347,7 +348,11 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
             isBorderPainted = false
             isFocusPainted = false
             isFocusable = false
-            border = JBUI.Borders.emptyLeft(4)
+            margin = JBUI.emptyInsets()
+            border = JBUI.Borders.empty()
+            preferredSize = ActionToolbar.DEFAULT_MINIMUM_BUTTON_SIZE
+            minimumSize = ActionToolbar.DEFAULT_MINIMUM_BUTTON_SIZE
+            maximumSize = ActionToolbar.DEFAULT_MINIMUM_BUTTON_SIZE
             addActionListener {
                 ShowSettingsUtil.getInstance().showSettingsDialog(project, GitWorktreesProjectConfigurable.ID)
             }

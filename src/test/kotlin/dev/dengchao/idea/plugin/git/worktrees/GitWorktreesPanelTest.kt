@@ -259,6 +259,8 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
         assertEquals(UIUtil.getContextHelpForeground(), providerNote.foreground)
         assertTrue(providerNote.font.size2D < table.font.size2D)
         assertTrue(providerNote.x < settingsButton.x)
+        assertEquals(ActionToolbar.DEFAULT_MINIMUM_BUTTON_SIZE.width, settingsButton.preferredSize.width)
+        assertEquals(ActionToolbar.DEFAULT_MINIMUM_BUTTON_SIZE.height, settingsButton.preferredSize.height)
     }
 
     @Test
