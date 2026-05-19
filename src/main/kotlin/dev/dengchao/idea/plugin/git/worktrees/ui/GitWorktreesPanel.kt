@@ -9,6 +9,7 @@ import com.intellij.openapi.Disposable
 import com.intellij.openapi.actionSystem.ActionGroup
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.ActionToolbar
+import com.intellij.openapi.actionSystem.CustomShortcutSet
 import com.intellij.openapi.actionSystem.DataSink
 import com.intellij.openapi.actionSystem.UiDataProvider
 import com.intellij.openapi.application.ApplicationManager
@@ -29,6 +30,7 @@ import com.intellij.ui.table.JBTable
 import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.UIUtil
 import dev.dengchao.idea.plugin.git.worktrees.Gw4iBundle
+import dev.dengchao.idea.plugin.git.worktrees.actions.RemoveSelectedWorktreeAction
 import dev.dengchao.idea.plugin.git.worktrees.model.WorktreeInfo
 import dev.dengchao.idea.plugin.git.worktrees.services.GitWorktreesOperationsService
 import dev.dengchao.idea.plugin.git.worktrees.settings.GitWorktreesProjectConfigurable
@@ -42,6 +44,7 @@ import java.awt.Graphics2D
 import java.awt.Rectangle
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
+import java.awt.event.KeyEvent
 import java.nio.file.Path
 import javax.swing.JButton
 import javax.swing.JComponent
@@ -50,6 +53,7 @@ import javax.swing.JMenuItem
 import javax.swing.JPanel
 import javax.swing.JPopupMenu
 import javax.swing.JTable
+import javax.swing.KeyStroke
 import javax.swing.ListSelectionModel
 import javax.swing.SwingUtilities
 import javax.swing.SwingConstants
@@ -372,6 +376,7 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
         }
 
         TableSpeedSearch.installOn(table) { _, cell -> speedSearchText(cell) }
+        installDeleteShortcut(table)
         installToolWindowPopup(table)
 
         table.addMouseListener(object : MouseAdapter() {
@@ -394,6 +399,15 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
         val scrollPane = ScrollPaneFactory.createScrollPane(table)
         scrollPane.setColumnHeaderView(table.tableHeader)
         setContent(scrollPane)
+    }
+
+    private fun installDeleteShortcut(target: JComponent) {
+        RemoveSelectedWorktreeShortcutActionHolder.ACTION
+            .registerCustomShortcutSet(
+                CustomShortcutSet(KeyStroke.getKeyStroke(KeyEvent.VK_DELETE, 0)),
+                target,
+                this,
+            )
     }
 
     private fun isRepositoryChevronClick(event: MouseEvent): Boolean {
@@ -632,6 +646,10 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
     private enum class SortDirection {
         ASCENDING,
         DESCENDING,
+    }
+
+    private object RemoveSelectedWorktreeShortcutActionHolder {
+        val ACTION = RemoveSelectedWorktreeAction()
     }
 
     private inner class WorktreesTableHeader(columnModel: TableColumnModel) : JTableHeader(columnModel) {

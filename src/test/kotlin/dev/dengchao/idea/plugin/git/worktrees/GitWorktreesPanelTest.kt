@@ -26,12 +26,15 @@ import git4idea.repo.GitRepository
 import java.awt.BorderLayout
 import java.awt.Component
 import java.awt.Container
+import java.awt.event.KeyEvent
 import java.awt.event.MouseEvent
 import java.lang.reflect.InvocationHandler
 import java.lang.reflect.Proxy
 import java.nio.file.Path
+import javax.swing.JComponent
 import javax.swing.JButton
 import javax.swing.JLabel
+import javax.swing.KeyStroke
 import javax.swing.JScrollPane
 import javax.swing.JTable
 import javax.swing.SwingUtilities
@@ -292,6 +295,19 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
         val panel = panelWithWorktrees(repository, emptyList())
 
         assertNotNull(panel.speedSearchSupplyForTests())
+    }
+
+    @Test
+    fun `table binds Delete key to delete worktree action`() {
+        val repository = gitRepository(rootPath = "/project/root", currentBranchName = "master")
+        val panel = panelWithWorktrees(repository, emptyList())
+        val table = panel.tableForTests()
+        val deleteStroke = KeyStroke.getKeyStroke(KeyEvent.VK_DELETE, 0)
+
+        val actionKey = table.getInputMap(JComponent.WHEN_FOCUSED).get(deleteStroke)
+
+        assertNotNull(actionKey)
+        assertNotNull(table.actionMap.get(actionKey))
     }
 
     @Test
@@ -891,10 +907,14 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
     }
 
     private fun GitWorktreesPanel.speedSearchSupplyForTests(): SpeedSearchSupply {
-        val table = descendantsForTests().filterIsInstance<JTable>().single()
+        val table = tableForTests()
         return requireNotNull(SpeedSearchSupply.getSupply(table, true)) {
             "Git Worktrees table should install a speed search supply"
         }
+    }
+
+    private fun GitWorktreesPanel.tableForTests(): JTable {
+        return descendantsForTests().filterIsInstance<JTable>().single()
     }
 
     private fun <T : Any> GitWorktreesPanel.dataForTests(key: DataKey<T>): T? {
@@ -920,7 +940,7 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
         clickCount: Int,
         xOffset: (java.awt.Rectangle) -> Int,
     ) {
-        val table = descendantsForTests().filterIsInstance<JTable>().single()
+        val table = tableForTests()
         val rect = table.getCellRect(row, 0, true)
         table.setRowSelectionInterval(row, row)
         val event = MouseEvent(
