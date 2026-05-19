@@ -6,10 +6,10 @@ import com.intellij.icons.AllIcons
 import com.intellij.ide.impl.ProjectUtil
 import com.intellij.openapi.options.ShowSettingsUtil
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.actionSystem.ActionPlaces
 import com.intellij.openapi.actionSystem.ActionGroup
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.ActionToolbar
-import com.intellij.openapi.actionSystem.CustomShortcutSet
 import com.intellij.openapi.actionSystem.DataSink
 import com.intellij.openapi.actionSystem.UiDataProvider
 import com.intellij.openapi.application.ApplicationManager
@@ -402,12 +402,22 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
     }
 
     private fun installDeleteShortcut(target: JComponent) {
-        RemoveSelectedWorktreeShortcutActionHolder.ACTION
-            .registerCustomShortcutSet(
-                CustomShortcutSet(KeyStroke.getKeyStroke(KeyEvent.VK_DELETE, 0)),
-                target,
-                this,
-            )
+        val deleteStroke = KeyStroke.getKeyStroke(KeyEvent.VK_DELETE, 0)
+        target.getInputMap(JComponent.WHEN_FOCUSED).put(deleteStroke, REMOVE_SELECTED_WORKTREE_SHORTCUT_ACTION_KEY)
+        target.actionMap.put(
+            REMOVE_SELECTED_WORKTREE_SHORTCUT_ACTION_KEY,
+            object : javax.swing.AbstractAction() {
+                override fun actionPerformed(e: java.awt.event.ActionEvent?) {
+                    ActionManager.getInstance().tryToExecute(
+                        RemoveSelectedWorktreeShortcutActionHolder.ACTION,
+                        null,
+                        target,
+                        ActionPlaces.UNKNOWN,
+                        true,
+                    )
+                }
+            },
+        )
     }
 
     private fun isRepositoryChevronClick(event: MouseEvent): Boolean {
@@ -786,6 +796,7 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
         private const val RELATIVE_PARENT_DIR = ".."
         private const val RELATIVE_PARENT_PREFIX = "../"
         internal const val ACTION_DESCRIPTION_PROPERTY = "action.description"
+        private const val REMOVE_SELECTED_WORKTREE_SHORTCUT_ACTION_KEY = "GitWorktrees.RemoveSelectedWorktreeShortcut"
         private var openWorktreeProject: (Path) -> Unit = { path ->
             ProjectUtil.openOrImport(path)
         }

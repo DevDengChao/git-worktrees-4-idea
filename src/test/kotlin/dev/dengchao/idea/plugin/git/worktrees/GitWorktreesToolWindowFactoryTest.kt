@@ -67,7 +67,6 @@ class GitWorktreesToolWindowFactoryTest : LightPlatform4TestCase() {
                 "GitWorktrees.Checkout",
                 "GitWorktrees.Open",
                 "GitWorktrees.Remove",
-                "GitWorktrees.Refresh",
             ),
             childIds,
         )

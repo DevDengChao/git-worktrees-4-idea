@@ -303,7 +303,6 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
         val panel = panelWithWorktrees(repository, emptyList())
         val table = panel.tableForTests()
         val deleteStroke = KeyStroke.getKeyStroke(KeyEvent.VK_DELETE, 0)
-
         val actionKey = table.getInputMap(JComponent.WHEN_FOCUSED).get(deleteStroke)
 
         assertNotNull(actionKey)
