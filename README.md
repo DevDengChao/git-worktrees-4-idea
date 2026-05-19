@@ -17,7 +17,9 @@ Manage linked Git worktrees from inside IntelliJ IDEA.
 - **Work naturally in multi-root projects.** Repository rows group worktrees from `console`, `api`, `android`, or any other Git root in the project.
 - **Keep repository context while scrolling.** Long lists keep the current repository row pinned until the next repository group pushes it away.
 - **Collapse repository groups when you need a tighter view.** Use the chevron, double-click a repository row, or the context menu to hide or show its worktrees.
-- **Open, checkout, refresh, and delete worktrees from the toolbar or context menu.**
+- **Open, checkout, and delete worktrees from the context menu, with Refresh kept in the toolbar.**
+- **Tune behavior from Settings.** Configure relative locations and whether the Git tool window should restore the Worktrees tab, with global defaults plus project overrides.
+- **Remove worktrees from the keyboard.** Press `Delete` on a selected worktree row for the same remove flow as the toolbar action.
 - **Keep normal Git branch workflows worktree-aware.** Git Branch and Git Log branch-label menus can offer Checkout Anyway or Delete Branch / Worktree when a branch is already used by another worktree.
 - **Stay oriented inside the IDE.** The Git menu entry carries a subtle `By GW4I` marker, and the panel shows a small provider note at the toolbar edge.
 - **Keep deletion responsive on Windows.** Git unregisters worktrees first, then leftover non-empty directories are cleaned up as best-effort background work.
@@ -61,12 +63,14 @@ When the table is long, the active repository row stays visible at the top of th
 - Display detached worktrees as `detached`.
 - Collapse or expand repository rows from the chevron, double-click, or context menu.
 - Keep the active repository row sticky while scrolling long tables, with a push-off transition when the next repository group reaches the top.
-- Keep toolbar and popup actions in sync: Refresh, Checkout, Open, and Delete Worktree.
+- Keep Refresh in the toolbar and keep Checkout, Open, and Delete Worktree available in the popup.
 - Open the selected worktree as a project by double-clicking or using Open.
 - Checkout a selected worktree branch in the current repository with `--ignore-other-worktrees`.
 - Keep Checkout visible with an explanatory disabled hint when the selected row cannot be checked out, such as detached HEAD or the current worktree.
 - Ask before force checkout when local changes or untracked files would be overwritten.
 - Run checkout and delete operations in background tasks, then reload the panel when the operation completes.
+- Open Worktrees settings from the panel toolbar and configure global defaults or per-project overrides for relative locations and Git tab restore behavior.
+- Press `Delete` on a selected worktree row to trigger the same remove flow as the Delete Worktree action.
 - Delete a single worktree, or delete multiple selected worktrees in one batch.
 - Choose whether to delete only the worktree or delete both the worktree and its branch.
 - Protect main worktrees from delete actions.
@@ -99,7 +103,9 @@ When the table is long, the active repository row stays visible at the top of th
 - **自然支持多 root 项目。** `console`、`api`、`android` 等多个 Git root 会按仓库分组展示。
 - **滚动时保持仓库上下文。** 长列表会把当前仓库分组行固定在顶部，直到下一个仓库分组把它推走。
 - **需要更紧凑视图时可以折叠仓库分组。** 可通过左侧箭头、双击仓库行或右键菜单隐藏和展开该仓库下的 worktree。
-- **通过工具栏或右键菜单打开、切换、刷新和删除 worktree。**
+- **通过右键菜单打开、切换和删除 worktree，并把 Refresh 保留在工具栏。**
+- **可在 Settings 中调整行为。** 支持配置相对路径显示，以及 Git 工具窗口是否恢复 Worktrees 标签页，并区分全局默认值和项目覆盖。
+- **支持键盘删除 worktree。** 选中 worktree 行后按 `Delete`，即可触发与工具栏删除动作一致的流程。
 - **让常用 Git 分支流程感知 worktree。** 当分支已被另一个 worktree 使用时，Git Branch 菜单和 Git Log 分支标签菜单会提供 Checkout Anyway 或 Delete Branch / Worktree。
 - **在 IDE 里清楚标识来源。** Git 菜单入口会显示轻量的 `By GW4I` 标记，面板工具栏边缘也会显示简洁的来源说明。
 - **让 Windows 下的删除操作保持响应。** 先完成 Git unregister，再把残留的非空目录放到后台尽力清理。
@@ -143,12 +149,14 @@ When the table is long, the active repository row stays visible at the top of th
 - detached HEAD worktree 显示为 `detached`。
 - 可通过左侧箭头、双击或右键菜单折叠和展开仓库行。
 - 长表格滚动时，当前仓库分组行会固定在顶部，并在下一个仓库分组到达时自然推走。
-- 工具栏和右键菜单保持一致：Refresh、Checkout、Open、Delete Worktree。
+- 工具栏保留 Refresh，右键菜单提供 Checkout、Open、Delete Worktree。
 - 双击或点击 Open，可把选中的 worktree 作为项目打开。
 - 使用 `--ignore-other-worktrees` 在当前仓库切换到选中 worktree 的分支。
 - 当选中项不能 Checkout 时，保留 Checkout 入口并显示禁用原因，例如 detached HEAD 或当前 worktree。
 - 当本地变更或未跟踪文件可能被覆盖时，先弹窗确认再执行 force checkout。
 - Checkout 和 Delete 会在后台任务里执行，操作结束后自动重新加载面板。
+- 可从面板工具栏打开 Worktrees 设置，并为相对路径显示和 Git 标签页恢复行为配置全局默认值或项目级覆盖。
+- 选中 worktree 行后按 `Delete`，会触发与 Delete Worktree 动作一致的删除流程。
 - 支持删除单个 worktree，也支持一次批量删除多个选中的 worktree。
 - 删除时可选择只删除 worktree，或同时删除 worktree 和对应分支。
 - 主 worktree 不会出现在可删除操作中。

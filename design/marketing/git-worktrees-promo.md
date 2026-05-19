@@ -32,13 +32,13 @@ IntelliJ table Speed Search works on worktree rows and highlights matched fragme
 
 ### Worktree Operations
 
-The toolbar and context menu expose the daily actions: Refresh, Checkout, Open, and Delete Worktree. Double-clicking a worktree also opens it as a project.
+The toolbar and context menu split the daily actions cleanly: the toolbar keeps Refresh, while the context menu focuses on Checkout, Open, and Delete Worktree. Double-clicking a worktree also opens it as a project.
 
 Checkout uses `--ignore-other-worktrees` when switching to a branch used by another linked checkout. If local changes or untracked files would be overwritten, the plugin asks before force checkout. When Checkout is unavailable, such as on detached HEAD or the current worktree, the disabled action keeps a clear reason in the menu tooltip.
 
-Delete Worktree supports both single-row and multi-row deletion. Users can keep the branch, or delete the worktree and branch together. Main worktrees are protected from delete actions.
+Delete Worktree supports both single-row and multi-row deletion. Users can keep the branch, or delete the worktree and branch together. Main worktrees are protected from delete actions, and pressing `Delete` on a selected worktree row triggers the same removal flow from the keyboard.
 
-Checkout and delete commands run in background tasks, then reload the Worktrees panel and report success or failure through IDE notifications.
+Checkout and delete commands run in background tasks, then reload the Worktrees panel and report success or failure through IDE notifications. The panel toolbar also exposes a settings entry so teams can adjust relative path display and Git tab restore behavior with global defaults plus project overrides.
 
 ### Branch Menu Integration
 
@@ -64,7 +64,7 @@ Single worktree deletion uses the same responsive cleanup path when Git has alre
 
 ### Short Marketplace Summary
 
-Manage linked Git worktrees directly from IntelliJ IDEA: browse all roots, filter and sort worktrees, keep repository groups visible while scrolling, use Speed Search highlighting, open or checkout branches, handle Git Branch and Git Log branch conflicts, and safely delete worktrees with optional branch cleanup.
+Manage linked Git worktrees directly from IntelliJ IDEA: browse all roots, filter and sort worktrees, keep repository groups visible while scrolling, use Speed Search highlighting, open or checkout branches, configure panel behavior from Settings, trigger deletion from the keyboard, handle Git Branch and Git Log branch conflicts, and safely delete worktrees with optional branch cleanup.
 
 ## 中文宣传文案
 
@@ -98,13 +98,13 @@ IntelliJ 表格 Speed Search 会作用于 worktree 行，并在原位置高亮�
 
 ### Worktree 操作
 
-工具栏和右键菜单提供日常操作：Refresh、Checkout、Open 和 Delete Worktree。双击 worktree 也可以把它作为项目打开。
+工具栏和右键菜单会把日常操作清晰分开：工具栏保留 Refresh，右键菜单聚焦 Checkout、Open 和 Delete Worktree。双击 worktree 也可以把它作为项目打开。
 
 当切换到已被另一个 linked checkout 使用的分支时，Checkout 会使用 `--ignore-other-worktrees`。如果本地变更或未跟踪文件可能被覆盖，插件会先弹窗确认再执行 force checkout。当 Checkout 不可用时，例如选中 detached HEAD 或当前 worktree，禁用菜单项会保留清晰的原因提示。
 
-Delete Worktree 支持单行删除和多选批量删除。用户可以只删除 worktree，也可以同时删除 worktree 和对应分支。主 worktree 会受到保护，不会被删除操作命中。
+Delete Worktree 支持单行删除和多选批量删除。用户可以只删除 worktree，也可以同时删除 worktree 和对应分支。主 worktree 会受到保护，不会被删除操作命中；选中某个 worktree 行后按 `Delete`，也会触发同一套删除流程。
 
-Checkout 和 Delete 命令会在后台任务中执行，完成后重新加载 Worktrees 面板，并通过 IDE 通知提示成功或失败。
+Checkout 和 Delete 命令会在后台任务中执行，完成后重新加载 Worktrees 面板，并通过 IDE 通知提示成功或失败。面板工具栏还提供设置入口，团队可以为相对路径显示和 Git 标签页恢复行为配置全局默认值与项目级覆盖。
 
 ### 分支菜单集成
 
@@ -130,4 +130,4 @@ Git 操作完成后会刷新受影响仓库，并通过 IDE 通知反馈成功�
 
 ### Marketplace 短简介
 
-在 IntelliJ IDEA 中直接管理 linked Git worktree：浏览所有 Git root，过滤和排序 worktree，滚动时保留仓库分组上下文，使用 Speed Search 高亮，打开或切换分支，处理 Git Branch 与 Git Log 分支冲突，并安全删除 worktree，可选择同步清理分支。
+在 IntelliJ IDEA 中直接管理 linked Git worktree：浏览所有 Git root，过滤和排序 worktree，滚动时保留仓库分组上下文，使用 Speed Search 高亮，从 Settings 配置面板行为，用键盘快速删除，打开或切换分支，处理 Git Branch 与 Git Log 分支冲突，并安全删除 worktree，可选择同步清理分支。

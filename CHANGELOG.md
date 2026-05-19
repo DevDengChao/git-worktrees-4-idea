@@ -4,6 +4,18 @@
 
 ## [Unreleased]
 
+## [2026.0519.0] - 2026-05-19
+
+### Added
+
+- Add a Worktrees settings entry with global defaults and project overrides for relative path display and Git tool window tab restore behavior.
+- Bind the `Delete` key on selected worktree rows to the same remove flow used by the Delete Worktree action.
+
+### Changed
+
+- Refresh the README and marketing copy so they match the current settings entry, keyboard delete shortcut, and toolbar-versus-popup action layout.
+- Keep `Refresh` in the Worktrees toolbar while leaving the popup focused on repository toggle, checkout, open, and delete actions.
+
 ## [2026.0510.0] - 2026-05-10
 
 ### Fixed
@@ -77,7 +89,8 @@
 - Configure the plugin for IntelliJ Platform build `252` and newer.
 - Configure GitHub release publishing through signed JetBrains Marketplace upload using repository secrets.
 
-[Unreleased]: https://github.com/devdengchao/git-worktrees-4-idea/compare/2026.0510.0...HEAD
+[Unreleased]: https://github.com/devdengchao/git-worktrees-4-idea/compare/2026.0519.0...HEAD
+[2026.0519.0]: https://github.com/devdengchao/git-worktrees-4-idea/compare/2026.0510.0...2026.0519.0
 [1.1.0]: https://github.com/devdengchao/git-worktrees-4-idea/compare/1.0.0...1.1.0
 [1.0.0]: https://github.com/devdengchao/git-worktrees-4-idea/commits/1.0.0
 [2026.0510.0]: https://github.com/devdengchao/git-worktrees-4-idea/compare/2026.0509.2...2026.0510.0
