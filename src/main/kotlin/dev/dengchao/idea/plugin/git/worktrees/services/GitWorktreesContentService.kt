@@ -34,20 +34,7 @@ class GitWorktreesContentService(private val project: Project) {
     }
 
     private var panelFactory: () -> JComponent = { GitWorktreesPanel(project) }
-    private var startupButtonTipPresenter: (Project, String) -> Boolean = { currentProject, message ->
-        val toolWindowManager = ToolWindowManager.getInstance(currentProject)
-        val toolWindow = toolWindowManager.getToolWindow(GitWorktreesToolWindowFactory.TOOLWINDOW_ID)
-        if (toolWindow == null || toolWindow.isDisposed) {
-            false
-        } else {
-            toolWindowManager.notifyByBalloon(
-                GitWorktreesToolWindowFactory.TOOLWINDOW_ID,
-                MessageType.INFO,
-                message,
-            )
-            true
-        }
-    }
+    private var startupButtonTipPresenter: (Project, String) -> Boolean = ::presentStartupButtonTip
     private val trackedContentManagers = mutableSetOf<ContentManager>()
 
     fun openOrSelectWorktreesTab() {
@@ -122,20 +109,7 @@ class GitWorktreesContentService(private val project: Project) {
     ) {
         startupButtonTipPresenter = presenter
         Disposer.register(parentDisposable) {
-            startupButtonTipPresenter = { currentProject, message ->
-                val toolWindowManager = ToolWindowManager.getInstance(currentProject)
-                val toolWindow = toolWindowManager.getToolWindow(GitWorktreesToolWindowFactory.TOOLWINDOW_ID)
-                if (toolWindow == null || toolWindow.isDisposed) {
-                    false
-                } else {
-                    toolWindowManager.notifyByBalloon(
-                        GitWorktreesToolWindowFactory.TOOLWINDOW_ID,
-                        MessageType.INFO,
-                        message,
-                    )
-                    true
-                }
-            }
+            startupButtonTipPresenter = ::presentStartupButtonTip
         }
     }
 
@@ -225,6 +199,18 @@ class GitWorktreesContentService(private val project: Project) {
                 }
             },
         )
+    }
+
+    private fun presentStartupButtonTip(currentProject: Project, message: String): Boolean {
+        val toolWindowManager = ToolWindowManager.getInstance(currentProject)
+        val toolWindow = toolWindowManager.getToolWindow(GitWorktreesToolWindowFactory.TOOLWINDOW_ID)
+        if (toolWindow == null || toolWindow.isDisposed) return false
+        toolWindowManager.notifyByBalloon(
+            GitWorktreesToolWindowFactory.TOOLWINDOW_ID,
+            MessageType.INFO,
+            message,
+        )
+        return true
     }
 
 }
