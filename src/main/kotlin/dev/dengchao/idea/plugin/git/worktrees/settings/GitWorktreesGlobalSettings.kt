@@ -16,6 +16,7 @@ class GitWorktreesGlobalSettings : PersistentStateComponent<GitWorktreesGlobalSe
     data class State(
         var showRelativeLocations: Boolean = true,
         var rememberGitWindowTab: Boolean = true,
+        var showToolWindowButtonTipOnStartup: Boolean = true,
     )
 
     private var state = State()

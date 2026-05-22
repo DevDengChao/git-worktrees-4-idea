@@ -94,6 +94,55 @@ class GitWorktreesContentServiceTest : LightPlatform4TestCase() {
         assertEquals(0, contentManager.contentCount)
     }
 
+    @Test
+    fun `startup toolwindow button tip is shown once then disabled`() {
+        GitWorktreesGlobalSettings.getInstance().loadState(
+            GitWorktreesGlobalSettings.State(
+                showRelativeLocations = true,
+                rememberGitWindowTab = true,
+                showToolWindowButtonTipOnStartup = true,
+            ),
+        )
+        val service = GitWorktreesContentService.getInstance(project)
+        var shown = 0
+        var shownMessage: String? = null
+        service.overrideStartupButtonTipPresenterForTests(
+            { _, message ->
+                shown++
+                shownMessage = message
+                true
+            },
+            testRootDisposable,
+        )
+
+        service.showToolWindowButtonTipIfNeededNow()
+        service.showToolWindowButtonTipIfNeededNow()
+
+        assertEquals(1, shown)
+        assertEquals("Click this button to open the Git Worktrees panel.", shownMessage)
+        assertFalse(GitWorktreesGlobalSettings.getInstance().state.showToolWindowButtonTipOnStartup)
+    }
+
+    @Test
+    fun `startup toolwindow button tip remains enabled when it cannot be shown`() {
+        GitWorktreesGlobalSettings.getInstance().loadState(
+            GitWorktreesGlobalSettings.State(
+                showRelativeLocations = true,
+                rememberGitWindowTab = true,
+                showToolWindowButtonTipOnStartup = true,
+            ),
+        )
+        val service = GitWorktreesContentService.getInstance(project)
+        service.overrideStartupButtonTipPresenterForTests(
+            { _, _ -> false },
+            testRootDisposable,
+        )
+
+        service.showToolWindowButtonTipIfNeededNow()
+
+        assertTrue(GitWorktreesGlobalSettings.getInstance().state.showToolWindowButtonTipOnStartup)
+    }
+
     private fun setRememberGitWindowTab(
         globalValue: Boolean,
         projectOverride: Boolean,
@@ -103,6 +152,7 @@ class GitWorktreesContentServiceTest : LightPlatform4TestCase() {
             GitWorktreesGlobalSettings.State(
                 showRelativeLocations = true,
                 rememberGitWindowTab = globalValue,
+                showToolWindowButtonTipOnStartup = true,
             ),
         )
         GitWorktreesProjectSettings.getInstance(project).loadState(

@@ -16,6 +16,7 @@ class GitWorktreesSettingsTest : LightPlatform4TestCase() {
 
         assertTrue(settings.effectiveShowRelativeLocations())
         assertTrue(settings.effectiveRememberGitWindowTab())
+        assertTrue(GitWorktreesGlobalSettings.getInstance().state.showToolWindowButtonTipOnStartup)
     }
 
     @Test
@@ -51,6 +52,7 @@ class GitWorktreesSettingsTest : LightPlatform4TestCase() {
             GitWorktreesGlobalSettings.State(
                 showRelativeLocations = true,
                 rememberGitWindowTab = true,
+                showToolWindowButtonTipOnStartup = true,
             ),
         )
         GitWorktreesProjectSettings.getInstance(project).loadState(
@@ -70,6 +72,7 @@ class GitWorktreesSettingsTest : LightPlatform4TestCase() {
         configurable.setTargetForTests(GitWorktreesProjectConfigurable.SettingsTarget.GLOBAL)
         configurable.setShowRelativeLocationsForTests(false)
         configurable.setRememberGitWindowTabForTests(false)
+        configurable.setShowToolWindowButtonTipOnStartupForTests(false)
         configurable.setTargetForTests(GitWorktreesProjectConfigurable.SettingsTarget.PROJECT)
         configurable.setUseProjectSettingsForTests(true)
         configurable.setShowRelativeLocationsForTests(false)
@@ -83,6 +86,7 @@ class GitWorktreesSettingsTest : LightPlatform4TestCase() {
         val projectState = GitWorktreesProjectSettings.getInstance(project).state
         assertFalse(global.showRelativeLocations)
         assertFalse(global.rememberGitWindowTab)
+        assertFalse(global.showToolWindowButtonTipOnStartup)
         assertTrue(projectState.useProjectSettings)
         assertFalse(projectState.showRelativeLocations)
         assertTrue(projectState.rememberGitWindowTab)
@@ -92,6 +96,7 @@ class GitWorktreesSettingsTest : LightPlatform4TestCase() {
             GitWorktreesGlobalSettings.State(
                 showRelativeLocations = true,
                 rememberGitWindowTab = true,
+                showToolWindowButtonTipOnStartup = true,
             ),
         )
         configurable.reset()

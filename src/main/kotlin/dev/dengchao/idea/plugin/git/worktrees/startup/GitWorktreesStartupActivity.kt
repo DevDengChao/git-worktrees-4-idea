@@ -6,6 +6,8 @@ import dev.dengchao.idea.plugin.git.worktrees.services.GitWorktreesContentServic
 
 class GitWorktreesStartupActivity : ProjectActivity {
     override suspend fun execute(project: Project) {
-        GitWorktreesContentService.getInstance(project).restoreWorktreesTabIfNeeded()
+        val contentService = GitWorktreesContentService.getInstance(project)
+        contentService.restoreWorktreesTabIfNeeded()
+        contentService.showToolWindowButtonTipIfNeeded()
     }
 }

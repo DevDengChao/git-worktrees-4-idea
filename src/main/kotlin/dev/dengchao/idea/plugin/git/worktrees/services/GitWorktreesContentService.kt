@@ -4,6 +4,7 @@ import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.ui.MessageType
 import com.intellij.openapi.util.Key
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.wm.ToolWindow
@@ -15,6 +16,7 @@ import com.intellij.ui.content.ContentManager
 import com.intellij.ui.content.ContentManagerEvent
 import com.intellij.ui.content.ContentManagerListener
 import dev.dengchao.idea.plugin.git.worktrees.Gw4iBundle
+import dev.dengchao.idea.plugin.git.worktrees.settings.GitWorktreesGlobalSettings
 import dev.dengchao.idea.plugin.git.worktrees.settings.GitWorktreesProjectSettings
 import dev.dengchao.idea.plugin.git.worktrees.ui.GitWorktreesPanel
 import dev.dengchao.idea.plugin.git.worktrees.ui.GitWorktreesToolWindowFactory
@@ -32,6 +34,20 @@ class GitWorktreesContentService(private val project: Project) {
     }
 
     private var panelFactory: () -> JComponent = { GitWorktreesPanel(project) }
+    private var startupButtonTipPresenter: (Project, String) -> Boolean = { currentProject, message ->
+        val toolWindowManager = ToolWindowManager.getInstance(currentProject)
+        val toolWindow = toolWindowManager.getToolWindow(GitWorktreesToolWindowFactory.TOOLWINDOW_ID)
+        if (toolWindow == null || toolWindow.isDisposed) {
+            false
+        } else {
+            toolWindowManager.notifyByBalloon(
+                GitWorktreesToolWindowFactory.TOOLWINDOW_ID,
+                MessageType.INFO,
+                message,
+            )
+            true
+        }
+    }
     private val trackedContentManagers = mutableSetOf<ContentManager>()
 
     fun openOrSelectWorktreesTab() {
@@ -100,6 +116,29 @@ class GitWorktreesContentService(private val project: Project) {
         }
     }
 
+    internal fun overrideStartupButtonTipPresenterForTests(
+        presenter: (Project, String) -> Boolean,
+        parentDisposable: Disposable,
+    ) {
+        startupButtonTipPresenter = presenter
+        Disposer.register(parentDisposable) {
+            startupButtonTipPresenter = { currentProject, message ->
+                val toolWindowManager = ToolWindowManager.getInstance(currentProject)
+                val toolWindow = toolWindowManager.getToolWindow(GitWorktreesToolWindowFactory.TOOLWINDOW_ID)
+                if (toolWindow == null || toolWindow.isDisposed) {
+                    false
+                } else {
+                    toolWindowManager.notifyByBalloon(
+                        GitWorktreesToolWindowFactory.TOOLWINDOW_ID,
+                        MessageType.INFO,
+                        message,
+                    )
+                    true
+                }
+            }
+        }
+    }
+
     private fun openOrSelectWorktreesTabNow() {
         val toolWindowManager = ToolWindowManager.getInstance(project)
         val vcsToolWindow = toolWindowManager.getToolWindow(ToolWindowId.VCS)
@@ -126,6 +165,19 @@ class GitWorktreesContentService(private val project: Project) {
         }
     }
 
+    fun showToolWindowButtonTipIfNeeded() {
+        val application = ApplicationManager.getApplication()
+        if (application.isDispatchThread) {
+            showToolWindowButtonTipIfNeededNow()
+        } else {
+            application.invokeLater {
+                if (!project.isDisposed) {
+                    showToolWindowButtonTipIfNeededNow()
+                }
+            }
+        }
+    }
+
     internal fun restoreWorktreesTabIfNeeded(contentManager: ContentManager) {
         if (!GitWorktreesProjectSettings.getInstance(project).shouldRestoreGitWindowTabOnStartup()) return
         openOrSelectWorktreesTab(contentManager)
@@ -134,6 +186,18 @@ class GitWorktreesContentService(private val project: Project) {
     private fun restoreWorktreesTabIfNeededNow() {
         val vcsToolWindow = ToolWindowManager.getInstance(project).getToolWindow(ToolWindowId.VCS) ?: return
         restoreWorktreesTabIfNeeded(vcsToolWindow.contentManager)
+    }
+
+    internal fun showToolWindowButtonTipIfNeededNow() {
+        val settings = GitWorktreesGlobalSettings.getInstance().state
+        if (!settings.showToolWindowButtonTipOnStartup) return
+        val shown = startupButtonTipPresenter(
+            project,
+            Gw4iBundle.message("toolwindow.GitWorktrees.toolwindow.button.tip.on.startup"),
+        )
+        if (shown) {
+            settings.showToolWindowButtonTipOnStartup = false
+        }
     }
 
     private fun openFromLegacyToolWindowNow(toolWindow: ToolWindow) {

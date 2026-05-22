@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+## [2026.0522.0] - 2026-05-22
+
+### Added
+
+- Show a one-time startup popover near the right sidebar Git Worktrees button so first-time users can discover where to open the panel, and add a settings toggle to re-enable this tip for repeated testing.
+
 ## [2026.0519.0] - 2026-05-19
 
 ### Added
@@ -89,7 +95,8 @@
 - Configure the plugin for IntelliJ Platform build `252` and newer.
 - Configure GitHub release publishing through signed JetBrains Marketplace upload using repository secrets.
 
-[Unreleased]: https://github.com/devdengchao/git-worktrees-4-idea/compare/2026.0519.0...HEAD
+[Unreleased]: https://github.com/devdengchao/git-worktrees-4-idea/compare/2026.0522.0...HEAD
+[2026.0522.0]: https://github.com/devdengchao/git-worktrees-4-idea/compare/2026.0519.0...2026.0522.0
 [2026.0519.0]: https://github.com/devdengchao/git-worktrees-4-idea/compare/2026.0510.0...2026.0519.0
 [1.1.0]: https://github.com/devdengchao/git-worktrees-4-idea/compare/1.0.0...1.1.0
 [1.0.0]: https://github.com/devdengchao/git-worktrees-4-idea/commits/1.0.0

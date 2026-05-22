@@ -29,9 +29,11 @@ class GitWorktreesProjectConfigurable(
     private val useProjectSettingsCheckBox = JCheckBox(Gw4iBundle.message("settings.GitWorktrees.project.override"))
     private val showRelativeLocationsCheckBox = JCheckBox(Gw4iBundle.message("settings.GitWorktrees.show.relative.locations"))
     private val rememberGitWindowTabCheckBox = JCheckBox(Gw4iBundle.message("settings.GitWorktrees.remember.git.window.tab"))
+    private val showToolWindowButtonTipOnStartupCheckBox = JCheckBox(Gw4iBundle.message("settings.GitWorktrees.show.toolwindow.button.tip.on.startup"))
 
     private var globalShowRelativeLocations: Boolean = true
     private var globalRememberGitWindowTab: Boolean = true
+    private var globalShowToolWindowButtonTipOnStartup: Boolean = true
     private var projectUseProjectSettings: Boolean = false
     private var projectShowRelativeLocations: Boolean = true
     private var projectRememberGitWindowTab: Boolean = true
@@ -67,12 +69,18 @@ class GitWorktreesProjectConfigurable(
                 projectRememberGitWindowTab = rememberGitWindowTabCheckBox.isSelected
             }
         }
+        showToolWindowButtonTipOnStartupCheckBox.addItemListener {
+            if (targetComboBox.selectedItem == SettingsTarget.GLOBAL) {
+                globalShowToolWindowButtonTipOnStartup = showToolWindowButtonTipOnStartupCheckBox.isSelected
+            }
+        }
 
         panel = FormBuilder.createFormBuilder()
             .addLabeledComponent(Gw4iBundle.message("settings.GitWorktrees.target.label"), targetComboBox, true)
             .addComponent(useProjectSettingsCheckBox)
             .addComponent(showRelativeLocationsCheckBox)
             .addComponent(rememberGitWindowTabCheckBox)
+            .addComponent(showToolWindowButtonTipOnStartupCheckBox)
             .addComponentFillVertically(JPanel(), 0)
             .panel
         return panel as JPanel
@@ -83,6 +91,7 @@ class GitWorktreesProjectConfigurable(
         val projectState = GitWorktreesProjectSettings.getInstance(project).state
         return global.showRelativeLocations != globalShowRelativeLocations ||
             global.rememberGitWindowTab != globalRememberGitWindowTab ||
+            global.showToolWindowButtonTipOnStartup != globalShowToolWindowButtonTipOnStartup ||
             projectState.useProjectSettings != projectUseProjectSettings ||
             projectState.showRelativeLocations != projectShowRelativeLocations ||
             projectState.rememberGitWindowTab != projectRememberGitWindowTab
@@ -93,6 +102,7 @@ class GitWorktreesProjectConfigurable(
             GitWorktreesGlobalSettings.State(
                 showRelativeLocations = globalShowRelativeLocations,
                 rememberGitWindowTab = globalRememberGitWindowTab,
+                showToolWindowButtonTipOnStartup = globalShowToolWindowButtonTipOnStartup,
             ),
         )
         val settings = GitWorktreesProjectSettings.getInstance(project)
@@ -112,6 +122,7 @@ class GitWorktreesProjectConfigurable(
         val projectState = GitWorktreesProjectSettings.getInstance(project).state
         globalShowRelativeLocations = global.showRelativeLocations
         globalRememberGitWindowTab = global.rememberGitWindowTab
+        globalShowToolWindowButtonTipOnStartup = global.showToolWindowButtonTipOnStartup
         projectUseProjectSettings = projectState.useProjectSettings
         projectShowRelativeLocations = projectState.showRelativeLocations
         projectRememberGitWindowTab = projectState.rememberGitWindowTab
@@ -141,12 +152,17 @@ class GitWorktreesProjectConfigurable(
         rememberGitWindowTabCheckBox.isSelected = value
     }
 
+    internal fun setShowToolWindowButtonTipOnStartupForTests(value: Boolean) {
+        showToolWindowButtonTipOnStartupCheckBox.isSelected = value
+    }
+
     private fun updateControlsFromCurrentTarget() {
         val isProjectTarget = targetComboBox.selectedItem == SettingsTarget.PROJECT
         useProjectSettingsCheckBox.isSelected = projectUseProjectSettings
         useProjectSettingsCheckBox.isEnabled = isProjectTarget
         showRelativeLocationsCheckBox.isSelected = if (isProjectTarget) projectShowRelativeLocations else globalShowRelativeLocations
         rememberGitWindowTabCheckBox.isSelected = if (isProjectTarget) projectRememberGitWindowTab else globalRememberGitWindowTab
+        showToolWindowButtonTipOnStartupCheckBox.isSelected = globalShowToolWindowButtonTipOnStartup
         updateEnabledState()
     }
 
@@ -155,6 +171,7 @@ class GitWorktreesProjectConfigurable(
         val enableSettingCheckboxes = !isProjectTarget || useProjectSettingsCheckBox.isSelected
         showRelativeLocationsCheckBox.isEnabled = enableSettingCheckboxes
         rememberGitWindowTabCheckBox.isEnabled = enableSettingCheckboxes
+        showToolWindowButtonTipOnStartupCheckBox.isEnabled = !isProjectTarget
     }
 
     private class SettingsTargetListCellRenderer : DefaultListCellRenderer() {
