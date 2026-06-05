@@ -16,6 +16,7 @@ import dev.dengchao.idea.plugin.git.worktrees.Gw4iBundle
 import dev.dengchao.idea.plugin.git.worktrees.model.WorktreeInfo
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.StandardCopyOption
 import git4idea.commands.Git
 import git4idea.commands.GitCommand
 import git4idea.commands.GitCommandResult
@@ -134,6 +135,7 @@ class GitWorktreesOperationsService(private val project: Project) {
     private var checkoutRunner: (GitRepository, String, Boolean) -> CheckoutResult = ::runCheckout
     private var removeWorktreeRunner: (GitRepository, String) -> GitCommandResult = ::runRemoveWorktree
     private var deleteBranchRunner: (GitRepository, String, Boolean) -> GitCommandResult = ::runDeleteBranch
+    private var moveWorktreeDirectoryRunner: (String) -> Path? = ::moveWorktreeDirectoryForFastBulkRemoval
     private var backgroundTaskRunner: (String, () -> Unit, () -> Unit) -> Unit = ::queueBackgroundTask
     private var leftoverCleanupRunner: (List<String>) -> Unit = ::runLeftoverCleanupOnPooledThread
 
@@ -201,6 +203,16 @@ class GitWorktreesOperationsService(private val project: Project) {
             this.checkoutRunner = ::runCheckout
             this.removeWorktreeRunner = ::runRemoveWorktree
             this.deleteBranchRunner = ::runDeleteBranch
+        }
+    }
+
+    internal fun overrideWorktreeDirectoryMoveForTests(
+        moveWorktreeDirectoryRunner: (String) -> Path?,
+        parentDisposable: Disposable,
+    ) {
+        this.moveWorktreeDirectoryRunner = moveWorktreeDirectoryRunner
+        Disposer.register(parentDisposable) {
+            this.moveWorktreeDirectoryRunner = ::moveWorktreeDirectoryForFastBulkRemoval
         }
     }
 
@@ -421,7 +433,7 @@ class GitWorktreesOperationsService(private val project: Project) {
         val affectedRepositories = linkedSetOf<GitRepository>()
         val leftoverCleanupPaths = mutableListOf<String>()
         targets.filterNot { it.worktree.isMain }.forEach { target ->
-            val removalResult = removeWorktreeForBulk(target.repository, target.worktree.path)
+            val removalResult = removeWorktreeForBulkFast(target.repository, target.worktree.path)
             if (!removalResult.removed) {
                 return@forEach
             }
@@ -712,6 +724,19 @@ class GitWorktreesOperationsService(private val project: Project) {
         return BulkWorktreeRemoval(removed = true, leftoverCleanupPath = worktreePath)
     }
 
+    private fun removeWorktreeForBulkFast(repository: GitRepository, worktreePath: String): BulkWorktreeRemoval {
+        val movedPath = moveWorktreeDirectoryRunner(worktreePath) ?: return removeWorktreeForBulk(repository, worktreePath)
+
+        val result = removeWorktreeRunner(repository, worktreePath)
+        if (result.success()) {
+            return BulkWorktreeRemoval(removed = true, leftoverCleanupPath = movedPath.toString())
+        }
+
+        restoreMovedWorktreeDirectory(worktreePath, movedPath)
+        notifyDeleteWorktreeFailed(result)
+        return BulkWorktreeRemoval(removed = false)
+    }
+
     private fun deleteBranchForBulk(repository: GitRepository, branchName: String, force: Boolean): Boolean {
         val result = deleteBranchRunner(repository, branchName, force)
         if (!result.success()) {
@@ -782,6 +807,44 @@ class GitWorktreesOperationsService(private val project: Project) {
         if (!Files.isDirectory(path)) return false
 
         return cleanupLeftoverWorktree(worktreePath)
+    }
+
+    private fun moveWorktreeDirectoryForFastBulkRemoval(worktreePath: String): Path? {
+        val source = Path.of(worktreePath)
+        if (!Files.exists(source) || !Files.isDirectory(source)) return null
+
+        val parent = source.parent ?: return null
+        val fileName = source.fileName?.toString() ?: return null
+        repeat(10) { attempt ->
+            val suffix = System.currentTimeMillis().toString() + if (attempt == 0) "" else "-$attempt"
+            val target = parent.resolve("$fileName.deleting-$suffix")
+            if (Files.exists(target)) return@repeat
+
+            try {
+                return Files.move(source, target, StandardCopyOption.ATOMIC_MOVE)
+            } catch (_: Exception) {
+                try {
+                    return Files.move(source, target)
+                } catch (_: Exception) {
+                    return null
+                }
+            }
+        }
+        return null
+    }
+
+    private fun restoreMovedWorktreeDirectory(worktreePath: String, movedPath: Path) {
+        val originalPath = Path.of(worktreePath)
+        if (!Files.exists(movedPath) || Files.exists(originalPath)) return
+
+        try {
+            Files.move(movedPath, originalPath, StandardCopyOption.ATOMIC_MOVE)
+        } catch (_: Exception) {
+            try {
+                Files.move(movedPath, originalPath)
+            } catch (_: Exception) {
+            }
+        }
     }
 
     private fun isLeftoverDirectoryFailure(result: GitCommandResult): Boolean {

@@ -304,6 +304,172 @@ class GitWorktreesOperationsServiceTest : LightPlatform4TestCase() {
     }
 
     @Test
+    fun `test bulk remove moves directory before git unregisters and defers moved cleanup`() {
+        val events = mutableListOf<String>()
+        val repository = gitRepository(project.basePath!!, currentBranchName = "master") {
+            events += "refresh"
+        }
+        val service = GitWorktreesOperationsService.getInstance(project)
+        val worktreeDirectory = Files.createTempDirectory("gw4i-fast-bulk-worktree")
+        Files.writeString(worktreeDirectory.resolve("leftover.txt"), "leftover")
+        val movedPaths = mutableListOf<Path>()
+
+        try {
+            service.overrideProvidersForTests(
+                repositoriesProvider = { listOf(repository) },
+                worktreesProvider = { emptyList() },
+                parentDisposable = testRootDisposable,
+            )
+            service.overrideGitOperationsForTests(
+                removeWorktreeRunner = { _, path ->
+                    assertEquals(worktreeDirectory.toString(), path)
+                    val movedCandidates = movedWorktreeCandidates(worktreeDirectory)
+                    if (!Files.exists(worktreeDirectory) && movedCandidates.size == 1) {
+                        events += "rename"
+                        movedPaths.add(movedCandidates[0])
+                    }
+                    events += "remove original"
+                    GitCommandResult(false, 0, emptyList(), emptyList())
+                },
+                deleteBranchRunner = { _, branch, _ ->
+                    events += if (movedPaths.size == 1 && Files.exists(movedPaths[0])) {
+                        "delete branch $branch before cleanup"
+                    } else {
+                        "delete branch $branch after cleanup"
+                    }
+                    GitCommandResult(false, 0, emptyList(), emptyList())
+                },
+                parentDisposable = testRootDisposable,
+            )
+
+            val result = service.removeWorktreesWithBranchDecision(
+                targets = listOf(
+                    BulkRemoveWorktreesTarget(repository, worktree(path = worktreeDirectory.toString(), branchName = "feature")),
+                ),
+                decision = DeleteWorktreeBranchDecision.DELETE_WORKTREE_AND_BRANCH,
+                notifyResult = false,
+                cleanupLeftoversImmediately = false,
+            )
+
+            assertEquals(listOf("rename", "remove original", "delete branch feature before cleanup", "refresh"), events)
+            assertFalse(Files.exists(worktreeDirectory))
+            assertEquals(1, result.removedWorktrees)
+            assertEquals(1, result.deletedBranches)
+            assertEquals(listOf(movedPaths[0].toString()), result.leftoverCleanupPaths)
+            assertTrue(Files.exists(movedPaths[0]))
+        } finally {
+            cleanupTestDirectory(worktreeDirectory)
+            movedPaths.forEach { cleanupTestDirectory(it) }
+        }
+    }
+
+    @Test
+    fun `test bulk remove falls back to git removal when directory move fails`() {
+        val repository = gitRepository(project.basePath!!, currentBranchName = "master")
+        val service = GitWorktreesOperationsService.getInstance(project)
+        val worktreeDirectory = Files.createTempDirectory("gw4i-fast-bulk-move-fallback")
+        Files.writeString(worktreeDirectory.resolve("leftover.txt"), "leftover")
+        val events = mutableListOf<String>()
+
+        try {
+            service.overrideProvidersForTests(
+                repositoriesProvider = { listOf(repository) },
+                worktreesProvider = { emptyList() },
+                parentDisposable = testRootDisposable,
+            )
+            service.overrideWorktreeDirectoryMoveForTests(
+                moveWorktreeDirectoryRunner = {
+                    events += "move failed"
+                    null
+                },
+                parentDisposable = testRootDisposable,
+            )
+            service.overrideGitOperationsForTests(
+                removeWorktreeRunner = { _, path ->
+                    assertEquals(worktreeDirectory.toString(), path)
+                    events += "remove original"
+                    GitCommandResult(false, 0, emptyList(), emptyList())
+                },
+                deleteBranchRunner = { _, branch, _ ->
+                    events += "delete branch $branch"
+                    GitCommandResult(false, 0, emptyList(), emptyList())
+                },
+                parentDisposable = testRootDisposable,
+            )
+
+            val result = service.removeWorktreesWithBranchDecision(
+                targets = listOf(
+                    BulkRemoveWorktreesTarget(repository, worktree(path = worktreeDirectory.toString(), branchName = "feature")),
+                ),
+                decision = DeleteWorktreeBranchDecision.DELETE_WORKTREE_AND_BRANCH,
+                notifyResult = false,
+                cleanupLeftoversImmediately = false,
+            )
+
+            assertEquals(listOf("move failed", "remove original", "delete branch feature"), events)
+            assertTrue(Files.exists(worktreeDirectory))
+            assertEquals(1, result.removedWorktrees)
+            assertEquals(1, result.deletedBranches)
+            assertTrue(result.leftoverCleanupPaths.isEmpty())
+        } finally {
+            cleanupTestDirectory(worktreeDirectory)
+        }
+    }
+
+    @Test
+    fun `test bulk remove restores moved directory and skips branch deletion when git unregister fails`() {
+        val repository = gitRepository(project.basePath!!, currentBranchName = "master")
+        val service = GitWorktreesOperationsService.getInstance(project)
+        val worktreeDirectory = Files.createTempDirectory("gw4i-fast-bulk-unregister-fails")
+        Files.writeString(worktreeDirectory.resolve("leftover.txt"), "leftover")
+        val movedPaths = mutableListOf<Path>()
+        val events = mutableListOf<String>()
+
+        try {
+            service.overrideProvidersForTests(
+                repositoriesProvider = { listOf(repository) },
+                worktreesProvider = { emptyList() },
+                parentDisposable = testRootDisposable,
+            )
+            service.overrideGitOperationsForTests(
+                removeWorktreeRunner = { _, path ->
+                    assertEquals(worktreeDirectory.toString(), path)
+                    val movedCandidates = movedWorktreeCandidates(worktreeDirectory)
+                    if (!Files.exists(worktreeDirectory) && movedCandidates.size == 1) {
+                        events += "rename"
+                        movedPaths.add(movedCandidates[0])
+                    }
+                    events += "remove original failed"
+                    GitCommandResult(true, 1, listOf("fatal: could not unregister worktree"), emptyList())
+                },
+                deleteBranchRunner = { _, branch, _ ->
+                    events += "delete branch $branch"
+                    GitCommandResult(false, 0, emptyList(), emptyList())
+                },
+                parentDisposable = testRootDisposable,
+            )
+
+            val result = service.removeWorktreesWithBranchDecision(
+                targets = listOf(
+                    BulkRemoveWorktreesTarget(repository, worktree(path = worktreeDirectory.toString(), branchName = "feature")),
+                ),
+                decision = DeleteWorktreeBranchDecision.DELETE_WORKTREE_AND_BRANCH,
+                notifyResult = false,
+                cleanupLeftoversImmediately = false,
+            )
+
+            assertEquals(listOf("rename", "remove original failed"), events)
+            assertTrue(Files.exists(worktreeDirectory))
+            assertEquals(0, result.removedWorktrees)
+            assertEquals(0, result.deletedBranches)
+            assertTrue(result.leftoverCleanupPaths.isEmpty())
+        } finally {
+            cleanupTestDirectory(worktreeDirectory)
+            movedPaths.forEach { cleanupTestDirectory(it) }
+        }
+    }
+
+    @Test
     fun `test bulk remove deletes branch before cleaning leftover directory`() {
         val repository = gitRepository(project.basePath!!, currentBranchName = "master")
         val service = GitWorktreesOperationsService.getInstance(project)
@@ -317,6 +483,10 @@ class GitWorktreesOperationsServiceTest : LightPlatform4TestCase() {
                 events += "list"
                 emptyList()
             },
+            parentDisposable = testRootDisposable,
+        )
+        service.overrideWorktreeDirectoryMoveForTests(
+            moveWorktreeDirectoryRunner = { null },
             parentDisposable = testRootDisposable,
         )
         service.overrideGitOperationsForTests(
@@ -367,6 +537,10 @@ class GitWorktreesOperationsServiceTest : LightPlatform4TestCase() {
             worktreesProvider = { emptyList() },
             parentDisposable = testRootDisposable,
         )
+        service.overrideWorktreeDirectoryMoveForTests(
+            moveWorktreeDirectoryRunner = { null },
+            parentDisposable = testRootDisposable,
+        )
         service.overrideGitOperationsForTests(
             removeWorktreeRunner = { _, path ->
                 events += "remove"
@@ -415,6 +589,10 @@ class GitWorktreesOperationsServiceTest : LightPlatform4TestCase() {
         service.overrideProvidersForTests(
             repositoriesProvider = { listOf(repository) },
             worktreesProvider = { emptyList() },
+            parentDisposable = testRootDisposable,
+        )
+        service.overrideWorktreeDirectoryMoveForTests(
+            moveWorktreeDirectoryRunner = { null },
             parentDisposable = testRootDisposable,
         )
         service.overrideGitOperationsForTests(
@@ -475,6 +653,10 @@ class GitWorktreesOperationsServiceTest : LightPlatform4TestCase() {
         service.overrideProvidersForTests(
             repositoriesProvider = { listOf(repository) },
             worktreesProvider = { emptyList() },
+            parentDisposable = testRootDisposable,
+        )
+        service.overrideWorktreeDirectoryMoveForTests(
+            moveWorktreeDirectoryRunner = { null },
             parentDisposable = testRootDisposable,
         )
         service.overrideGitOperationsForTests(
@@ -645,6 +827,10 @@ class GitWorktreesOperationsServiceTest : LightPlatform4TestCase() {
         service.overrideProvidersForTests(
             repositoriesProvider = { listOf(repository) },
             worktreesProvider = { emptyList() },
+            parentDisposable = testRootDisposable,
+        )
+        service.overrideWorktreeDirectoryMoveForTests(
+            moveWorktreeDirectoryRunner = { null },
             parentDisposable = testRootDisposable,
         )
         service.overrideGitOperationsForTests(
@@ -919,6 +1105,27 @@ class GitWorktreesOperationsServiceTest : LightPlatform4TestCase() {
         }
         Files.writeString(current.resolve("leftover.txt"), "leftover")
         return current
+    }
+
+    private fun movedWorktreeCandidates(worktreeDirectory: Path): List<Path> {
+        val candidates = mutableListOf<Path>()
+        Files.list(worktreeDirectory.parent).use { children ->
+            children.forEach { child ->
+                if (child.fileName.toString().startsWith("${worktreeDirectory.fileName}.deleting-")) {
+                    candidates.add(child)
+                }
+            }
+        }
+        return candidates
+    }
+
+    private fun cleanupTestDirectory(directory: Path) {
+        if (!Files.exists(directory)) return
+        Files.walk(directory)
+            .sorted(Comparator.reverseOrder())
+            .use { paths ->
+                paths.forEach { Files.deleteIfExists(it) }
+            }
     }
 
     private fun gitRepository(
