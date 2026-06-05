@@ -67,10 +67,5 @@
             <add-to-group group-id="Git.Branch" anchor="first"/>
         </action>
 
-        <action id="GitWorktrees.Branch.DeleteUsedByWorktree"
-                class="dev.dengchao.idea.plugin.git.worktrees.actions.DeleteBranchUsedByAnotherWorktreeAction">
-            <add-to-group group-id="Git.Branch" anchor="last"/>
-        </action>
-
     </actions>
 </idea-plugin>

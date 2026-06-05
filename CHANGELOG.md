@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+## [2026.0605.0] - 2026-06-05
+
+### Fixed
+
+- Hide the duplicate `Delete` branch menu item when `Delete Branch / Worktree` is shown for branches already linked to another worktree.
+
 ## [2026.0519.0] - 2026-05-19
 
 ### Added
@@ -89,7 +95,8 @@
 - Configure the plugin for IntelliJ Platform build `252` and newer.
 - Configure GitHub release publishing through signed JetBrains Marketplace upload using repository secrets.
 
-[Unreleased]: https://github.com/devdengchao/git-worktrees-4-idea/compare/2026.0519.0...HEAD
+[Unreleased]: https://github.com/devdengchao/git-worktrees-4-idea/compare/2026.0605.0...HEAD
+[2026.0605.0]: https://github.com/devdengchao/git-worktrees-4-idea/compare/2026.0519.0...2026.0605.0
 [2026.0519.0]: https://github.com/devdengchao/git-worktrees-4-idea/compare/2026.0510.0...2026.0519.0
 [1.1.0]: https://github.com/devdengchao/git-worktrees-4-idea/compare/1.0.0...1.1.0
 [1.0.0]: https://github.com/devdengchao/git-worktrees-4-idea/commits/1.0.0
