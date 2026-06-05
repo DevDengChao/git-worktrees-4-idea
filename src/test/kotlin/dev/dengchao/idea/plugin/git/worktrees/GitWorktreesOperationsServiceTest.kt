@@ -405,6 +405,56 @@ class GitWorktreesOperationsServiceTest : LightPlatform4TestCase() {
     }
 
     @Test
+    fun `test bulk remove handles invalid argument as deferred leftover cleanup`() {
+        val repository = gitRepository(project.basePath!!, currentBranchName = "master")
+        val service = GitWorktreesOperationsService.getInstance(project)
+        val leftoverDirectory = Files.createTempDirectory("gw4i-bulk-invalid-argument-leftover-worktree")
+        Files.writeString(leftoverDirectory.resolve("leftover.txt"), "leftover")
+        val events = mutableListOf<String>()
+
+        service.overrideProvidersForTests(
+            repositoriesProvider = { listOf(repository) },
+            worktreesProvider = { emptyList() },
+            parentDisposable = testRootDisposable,
+        )
+        service.overrideGitOperationsForTests(
+            removeWorktreeRunner = { _, path ->
+                events += "remove"
+                GitCommandResult(
+                    false,
+                    1,
+                    listOf("error: failed to delete '$path': Invalid argument"),
+                    emptyList(),
+                )
+            },
+            deleteBranchRunner = { _, branch, _ ->
+                events += if (Files.exists(leftoverDirectory)) {
+                    "delete branch $branch before cleanup"
+                } else {
+                    "delete branch $branch after cleanup"
+                }
+                GitCommandResult(false, 0, emptyList(), emptyList())
+            },
+            parentDisposable = testRootDisposable,
+        )
+
+        val result = service.removeWorktreesWithBranchDecision(
+            targets = listOf(
+                BulkRemoveWorktreesTarget(repository, worktree(path = leftoverDirectory.toString(), branchName = "feature")),
+            ),
+            decision = DeleteWorktreeBranchDecision.DELETE_WORKTREE_AND_BRANCH,
+            notifyResult = false,
+            cleanupLeftoversImmediately = false,
+        )
+
+        assertEquals(listOf("remove", "delete branch feature before cleanup"), events)
+        assertTrue(Files.exists(leftoverDirectory))
+        assertEquals(1, result.removedWorktrees)
+        assertEquals(1, result.deletedBranches)
+        assertEquals(listOf(leftoverDirectory.toString()), result.leftoverCleanupPaths)
+    }
+
+    @Test
     fun `test delete leftover worktree handles long local paths`() {
         val service = GitWorktreesOperationsService.getInstance(project)
         val leftoverDirectory = createLongPathWorktreeDirectory("gw4i-leftover-delete-long-path")

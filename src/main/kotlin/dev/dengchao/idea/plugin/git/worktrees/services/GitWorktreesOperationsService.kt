@@ -787,7 +787,8 @@ class GitWorktreesOperationsService(private val project: Project) {
     private fun isLeftoverDirectoryFailure(result: GitCommandResult): Boolean {
         return result.errorOutput.any { line ->
             line.contains("Directory not empty", ignoreCase = true) ||
-                line.contains("Filename too long", ignoreCase = true)
+                line.contains("Filename too long", ignoreCase = true) ||
+                line.contains("Invalid argument", ignoreCase = true)
         }
     }
 
