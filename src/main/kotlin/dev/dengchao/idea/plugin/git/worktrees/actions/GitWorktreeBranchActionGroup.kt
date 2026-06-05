@@ -7,6 +7,7 @@ import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.ex.ActionUtil
 import com.intellij.openapi.project.DumbAware
+import dev.dengchao.idea.plugin.git.worktrees.Gw4iBundle
 import git4idea.GitReference
 import git4idea.actions.ref.GitSingleRefAction
 import git4idea.repo.GitRepository
@@ -95,11 +96,14 @@ private class DeleteSelectedBranchUsedByWorktreeAction(
         repositories: List<GitRepository>,
         reference: GitReference,
     ) {
-        ActionUtil.updateAction(nativeAction, e)
-        val context = BranchUsedByWorktreeContextResolver.fromBranchPopupEvent(e) ?: return
-        e.presentation.isEnabledAndVisible = true
-        e.presentation.text = nativeAction.templatePresentation.text
-        e.presentation.description = nativeAction.templatePresentation.description
+        val context = BranchUsedByWorktreeContextResolver.fromBranchPopupEvent(e)
+        if (context != null) {
+            e.presentation.isEnabledAndVisible = true
+            e.presentation.text = Gw4iBundle.message("action.GitWorktrees.Branch.DeleteUsedByWorktree.text")
+            e.presentation.description = Gw4iBundle.message("action.GitWorktrees.Branch.DeleteUsedByWorktree.description")
+        } else {
+            ActionUtil.updateAction(nativeAction, e)
+        }
     }
 
     override fun actionPerformed(
