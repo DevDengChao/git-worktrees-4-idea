@@ -13,6 +13,11 @@
                   topic="com.intellij.ide.AppLifecycleListener"/>
     </applicationListeners>
 
+    <projectListeners>
+        <listener class="dev.dengchao.idea.plugin.git.worktrees.services.GitWorktreesToolWindowListener"
+                  topic="com.intellij.openapi.wm.ex.ToolWindowManagerListener"/>
+    </projectListeners>
+
     <extensions defaultExtensionNs="com.intellij">
         <toolWindow id="Git Worktrees"
                     factoryClass="dev.dengchao.idea.plugin.git.worktrees.ui.GitWorktreesToolWindowFactory"

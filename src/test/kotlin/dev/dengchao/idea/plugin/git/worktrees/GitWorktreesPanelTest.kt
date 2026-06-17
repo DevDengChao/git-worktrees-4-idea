@@ -131,8 +131,8 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
 
         val panel = panelWithWorktrees(repository, listOf(worktree, detachedWorktree))
 
-        assertEquals(listOf("Worktree", "Branch", "Location"), panel.columnNamesForTests())
-        assertEquals(3, panel.columnCountForTests())
+        assertEquals(listOf("Worktree", "Branch", "Location", "Dirty"), panel.columnNamesForTests())
+        assertEquals(4, panel.columnCountForTests())
         assertTrue(panel.isRepositoryRowForTests(0))
         assertEquals("root", panel.tableValueForTests(0, 0))
         assertEquals("", panel.tableValueForTests(0, 1))
@@ -223,8 +223,8 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
         val filterFields = panel.descendantsForTests().filterIsInstance<JBTextField>()
 
         assertSame(table.tableHeader, columnHeaderView)
-        assertEquals(3, sortButtons.size)
-        assertEquals(3, filterFields.size)
+        assertEquals(4, sortButtons.size)
+        assertEquals(4, filterFields.size)
         sortButtons.forEach { button ->
             assertTrue(SwingUtilities.isDescendingFrom(button, table.tableHeader))
         }
@@ -894,9 +894,9 @@ class GitWorktreesPanelTest : LightPlatform4TestCase() {
             .filterIsInstance<JLabel>()
             .filter { label -> label.text in columnNamesForTests() }
 
-        assertEquals(3, sortButtons.size)
-        assertEquals(3, filterFields.size)
-        assertEquals(3, titleLabels.size)
+        assertEquals(4, sortButtons.size)
+        assertEquals(4, filterFields.size)
+        assertEquals(4, titleLabels.size)
 
         return HeaderControls(
             titleLabels = GitWorktreesPanel.Column.entries.zip(titleLabels).toMap(),

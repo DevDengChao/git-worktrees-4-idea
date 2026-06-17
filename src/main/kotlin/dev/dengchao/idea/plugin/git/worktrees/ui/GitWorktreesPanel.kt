@@ -83,6 +83,10 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
         LOCATION(
             "toolwindow.GitWorktrees.column.location",
             "toolwindow.GitWorktrees.filter.location",
+        ),
+        DIRTY(
+            "toolwindow.GitWorktrees.column.dirty",
+            "toolwindow.GitWorktrees.filter.dirty",
         );
 
         fun value(repository: GitRepository, worktree: WorktreeInfo, showRelativeLocations: Boolean): String {
@@ -90,6 +94,7 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
                 WORKTREE_ID -> worktree.name
                 BRANCH_NAME -> worktree.branchName ?: DETACHED_BRANCH
                 LOCATION -> if (showRelativeLocations) relativeWorktreeLocation(repository, worktree) else worktree.path
+                DIRTY -> if (worktree.isDirty) "Yes" else ""
             }
         }
     }
@@ -703,6 +708,7 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
                         Column.WORKTREE_ID -> row.presentationName(project)
                         Column.BRANCH_NAME -> ""
                         Column.LOCATION -> row.presentationLocation()
+                        Column.DIRTY -> ""
                     }
                 }
                 is WorkingTreeRow -> Column.entries[columnIndex]
@@ -747,7 +753,11 @@ class GitWorktreesPanel(private val project: Project) : SimpleToolWindowPanel(tr
                 }
                 null -> Unit
             }
-            SpeedSearchUtil.appendFragmentsForSpeedSearch(table, text, SimpleTextAttributes.REGULAR_ATTRIBUTES, true, this)
+            val attributes = if (column == Column.DIRTY.ordinal && item is WorkingTreeRow && item.worktree.isDirty)
+                SimpleTextAttributes.ERROR_ATTRIBUTES
+            else
+                SimpleTextAttributes.REGULAR_ATTRIBUTES
+            SpeedSearchUtil.appendFragmentsForSpeedSearch(table, text, attributes, true, this)
         }
     }
 

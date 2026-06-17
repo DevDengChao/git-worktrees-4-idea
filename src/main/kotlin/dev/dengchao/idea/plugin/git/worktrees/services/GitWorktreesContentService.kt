@@ -104,8 +104,21 @@ class GitWorktreesContentService(private val project: Project) {
         val toolWindowManager = ToolWindowManager.getInstance(project)
         val vcsToolWindow = toolWindowManager.getToolWindow(ToolWindowId.VCS)
         if (vcsToolWindow != null) {
-            openOrSelectWorktreesTab(vcsToolWindow.contentManager)
-            vcsToolWindow.activate(null)
+            val contentManager = vcsToolWindow.contentManager
+            val title = Gw4iBundle.message("toolwindow.GitWorktrees.vcs.tab.title")
+
+            if (vcsToolWindow.isVisible) {
+                val existing = contentManager.findContent(title)
+                if (existing != null && contentManager.selectedContent == existing) {
+                    vcsToolWindow.hide(null)
+                    return
+                }
+            }
+
+            openOrSelectWorktreesTab(contentManager)
+            if (!vcsToolWindow.isVisible) {
+                vcsToolWindow.activate(null)
+            }
             return
         }
 

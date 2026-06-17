@@ -7,6 +7,7 @@ data class WorktreeInfo(
     val isCurrent: Boolean,
     val isLocked: Boolean,
     val isPrunable: Boolean,
+    val isDirty: Boolean = false,
 ) {
     val name: String
         get() {

@@ -10,6 +10,7 @@ import com.intellij.openapi.ui.MessageDialogBuilder
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.util.SystemInfo
 import com.intellij.openapi.util.io.NioFiles
+import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.openapi.vcs.VcsNotifier
 import dev.dengchao.idea.plugin.git.worktrees.Gw4iBundle
@@ -242,7 +243,9 @@ class GitWorktreesOperationsService(private val project: Project) {
         val result = runListWorktrees(repository)
         if (!result.success()) return emptyList()
 
-        return parseWorktrees(repository, result.output)
+        return parseWorktrees(repository, result.output).map { worktree ->
+            worktree.copy(isDirty = isWorktreeDirty(repository, worktree.path))
+        }
     }
 
     fun uniqueTopLevelRepository(): GitRepository? {
@@ -636,6 +639,17 @@ class GitWorktreesOperationsService(private val project: Project) {
         handler.setStderrSuppressed(false)
         handler.addParameters("list", "--porcelain")
         return Git.getInstance().runCommand(handler)
+    }
+
+    private fun isWorktreeDirty(repository: GitRepository, worktreePath: String): Boolean {
+        val worktreeFile = LocalFileSystem.getInstance().findFileByPath(worktreePath) ?: return false
+        val handler = GitLineHandler(repository.project, worktreeFile, GitCommand.STATUS)
+        handler.addParameters("--porcelain")
+        handler.setSilent(true)
+        handler.setStdoutSuppressed(true)
+        handler.setStderrSuppressed(true)
+        val result = Git.getInstance().runCommand(handler)
+        return result.success() && result.output.isNotEmpty()
     }
 
     private fun runCheckout(repository: GitRepository, branchName: String, force: Boolean): CheckoutResult {
