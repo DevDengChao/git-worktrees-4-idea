@@ -8,11 +8,13 @@ This file keeps the English and Chinese copy together so the same material can b
 
 ![Git Worktrees overview](screenshots/00-overview.png)
 
-Git Worktrees | GW4I brings linked worktree management into the Git tool window. It gives teams a single table for checking which worktrees exist, which branch each one uses, and where each checkout lives on disk.
+Git Worktrees | GW4I brings linked worktree management into the Git tool window. It gives teams a single table for checking which worktrees exist, which branch each one uses, where each checkout lives on disk, and whether any worktree has uncommitted changes.
 
 ### UI Navigation
 
-Open the Worktrees tab from the Git main menu or the Git tool window drop-down. The plugin creates or selects a closable `Worktrees` tab inside the Version Control / Git tool window, while the standalone `Git Worktrees` tool window remains available as a fallback.
+Open the Worktrees tab from the Git main menu, the Git tool window drop-down, or the right-side Worktrees icon button. The right-side icon implements a convenient 3-state toggle: it activates VCS with the Worktrees tab, selects an already-visible Worktrees tab, or hides the VCS panel.
+
+The plugin creates or selects a closable `Worktrees` tab inside the Version Control / Git tool window, while the standalone `Git Worktrees` tool window remains available as a fallback.
 
 The Git menu entry includes a subtle `By GW4I` secondary marker, and the panel toolbar shows a compact provider note, so users can recognize which menu item and tab come from the plugin without extra visual noise.
 
@@ -32,7 +34,7 @@ IntelliJ table Speed Search works on worktree rows and highlights matched fragme
 
 ### Worktree Operations
 
-The toolbar and context menu split the daily actions cleanly: the toolbar keeps Refresh, while the context menu focuses on Checkout, Open, and Delete Worktree. Double-clicking a worktree also opens it as a project.
+The toolbar and context menu split the daily actions cleanly: the toolbar keeps Refresh, while the context menu focuses on Checkout, Open, and Delete Worktree. Double-clicking a worktree also opens it as a project. A `Dirty` column in the table highlights worktrees that have uncommitted changes in red, so teams can spot working trees that need attention before switching branches.
 
 Checkout uses `--ignore-other-worktrees` when switching to a branch used by another linked checkout. If local changes or untracked files would be overwritten, the plugin asks before force checkout. When Checkout is unavailable, such as on detached HEAD or the current worktree, the disabled action keeps a clear reason in the menu tooltip.
 
@@ -64,7 +66,7 @@ Single worktree deletion uses the same responsive cleanup path when Git has alre
 
 ### Short Marketplace Summary
 
-Manage linked Git worktrees directly from IntelliJ IDEA: browse all roots, filter and sort worktrees, keep repository groups visible while scrolling, use Speed Search highlighting, open or checkout branches, configure panel behavior from Settings, trigger deletion from the keyboard, handle Git Branch and Git Log branch conflicts, and safely delete worktrees with optional branch cleanup.
+Manage linked Git worktrees directly from IntelliJ IDEA: browse all roots, filter and sort worktrees, keep repository groups visible while scrolling, use Speed Search highlighting, spot dirty worktrees at a glance, open or checkout branches, configure panel behavior from Settings, toggle the Worktrees tab with one click, trigger deletion from the keyboard, handle Git Branch and Git Log branch conflicts, and safely delete worktrees with optional branch cleanup.
 
 ## 中文宣传文案
 
@@ -74,11 +76,13 @@ Manage linked Git worktrees directly from IntelliJ IDEA: browse all roots, filte
 
 ![Git Worktrees 概览](screenshots/00-overview.png)
 
-Git Worktrees | GW4I 把 linked worktree 管理放进 Git 工具窗口。团队可以在一张表里看到当前有哪些 worktree、每个 worktree 对应哪个分支，以及它们分别位于哪个磁盘路径。
+Git Worktrees | GW4I 把 linked worktree 管理放进 Git 工具窗口。团队可以在一张表里看到当前有哪些 worktree、每个 worktree 对应哪个分支、它们分别位于哪个磁盘路径，以及每个 worktree 是否有未提交的变更。
 
 ### 界面入口
 
-可以从 Git 主菜单或 Git 工具窗口下拉菜单打开 Worktrees 标签页。插件会在 Version Control / Git 工具窗口中创建或选中一个可关闭的 `Worktrees` 标签页，同时保留独立 `Git Worktrees` 工具窗口作为回退入口。
+可以从 Git 主菜单、Git 工具窗口下拉菜单或右侧 Worktrees 图标按钮打开 Worktrees 标签页。右侧图标按钮实现了便捷的三态切换：打开 VCS 并选中 Worktrees 标签页、聚焦已打开的 Worktrees 标签页、关闭 VCS 面板。
+
+插件会在 Version Control / Git 工具窗口中创建或选中一个可关闭的 `Worktrees` 标签页，同时保留独立 `Git Worktrees` 工具窗口作为回退入口。
 
 Git 菜单入口会显示轻量的 `By GW4I` 二级标识，面板工具栏也会显示紧凑的来源说明，让用户能识别这个入口和标签页来自插件，同时不干扰日常使用。
 
@@ -98,7 +102,7 @@ IntelliJ 表格 Speed Search 会作用于 worktree 行，并在原位置高亮�
 
 ### Worktree 操作
 
-工具栏和右键菜单会把日常操作清晰分开：工具栏保留 Refresh，右键菜单聚焦 Checkout、Open 和 Delete Worktree。双击 worktree 也可以把它作为项目打开。
+工具栏和右键菜单会把日常操作清晰分开：工具栏保留 Refresh，右键菜单聚焦 Checkout、Open 和 Delete Worktree。双击 worktree 也可以把它作为项目打开。表格中的 `Dirty` 列会以红色标记有未提交变更的 worktree，方便团队在切换分支前快速识别需要处理的工作副本。
 
 当切换到已被另一个 linked checkout 使用的分支时，Checkout 会使用 `--ignore-other-worktrees`。如果本地变更或未跟踪文件可能被覆盖，插件会先弹窗确认再执行 force checkout。当 Checkout 不可用时，例如选中 detached HEAD 或当前 worktree，禁用菜单项会保留清晰的原因提示。
 
@@ -130,4 +134,4 @@ Git 操作完成后会刷新受影响仓库，并通过 IDE 通知反馈成功�
 
 ### Marketplace 短简介
 
-在 IntelliJ IDEA 中直接管理 linked Git worktree：浏览所有 Git root，过滤和排序 worktree，滚动时保留仓库分组上下文，使用 Speed Search 高亮，从 Settings 配置面板行为，用键盘快速删除，打开或切换分支，处理 Git Branch 与 Git Log 分支冲突，并安全删除 worktree，可选择同步清理分支。
+在 IntelliJ IDEA 中直接管理 linked Git worktree：浏览所有 Git root，过滤和排序 worktree，滚动时保留仓库分组上下文，使用 Speed Search 高亮，一眼识别有未提交变更的 worktree，从 Settings 配置面板行为，一键切换 Worktrees 标签页，用键盘快速删除，打开或切换分支，处理 Git Branch 与 Git Log 分支冲突，并安全删除 worktree，可选择同步清理分支。

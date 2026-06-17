@@ -23,6 +23,8 @@ Manage linked Git worktrees from inside IntelliJ IDEA.
 - **Keep normal Git branch workflows worktree-aware.** Git Branch and Git Log branch-label menus can offer Checkout Anyway or Delete Branch / Worktree when a branch is already used by another worktree.
 - **Stay oriented inside the IDE.** The Git menu entry carries a subtle `By GW4I` marker, and the panel shows a small provider note at the toolbar edge.
 - **Keep deletion responsive on Windows.** Git unregisters worktrees first, then leftover non-empty directories are cleaned up as best-effort background work.
+- **Spot dirty worktrees at a glance.** A `Dirty` column shows which worktrees have uncommitted changes, highlighted in red.
+- **Toggle the Worktrees tab with one click.** The right-side Worktrees icon button cycles through opening VCS with the Worktrees tab, focusing it, and closing the VCS panel.
 
 ### Screenshots
 
@@ -54,13 +56,15 @@ When the table is long, the active repository row stays visible at the top of th
 
 ### Features
 
-- Open the Worktrees tab from the Git main menu or the Git tool window drop-down.
+- Open the Worktrees tab from the Git main menu, the Git tool window drop-down, or the right-side Worktrees icon button.
+- Click the right-side Worktrees icon button to cycle through three states: open VCS with the Worktrees tab, focus the already-open Worktrees tab, or close the VCS panel.
 - Reuse a closable `Worktrees` tab inside the Version Control / Git tool window; fall back to the standalone `Git Worktrees` tool window when needed.
 - List linked worktrees using `git worktree list --porcelain`.
 - Show `Worktree`, `Branch`, and `Location` columns.
 - Show worktree locations relative to their Git root when possible, and use absolute paths for worktrees outside that root.
 - Render the main worktree in bold and mark the currently opened worktree with a check icon.
 - Display detached worktrees as `detached`.
+- Show a `Dirty` column that marks worktrees with uncommitted changes in red.
 - Collapse or expand repository rows from the chevron, double-click, or context menu.
 - Keep the active repository row sticky while scrolling long tables, with a push-off transition when the next repository group reaches the top.
 - Keep Refresh in the toolbar and keep Checkout, Open, and Delete Worktree available in the popup.
@@ -109,6 +113,8 @@ When the table is long, the active repository row stays visible at the top of th
 - **让常用 Git 分支流程感知 worktree。** 当分支已被另一个 worktree 使用时，Git Branch 菜单和 Git Log 分支标签菜单会提供 Checkout Anyway 或 Delete Branch / Worktree。
 - **在 IDE 里清楚标识来源。** Git 菜单入口会显示轻量的 `By GW4I` 标记，面板工具栏边缘也会显示简洁的来源说明。
 - **让 Windows 下的删除操作保持响应。** 先完成 Git unregister，再把残留的非空目录放到后台尽力清理。
+- **一眼识别有未提交变更的 worktree。** `Dirty` 列以红色标记显示含有未提交变更的 worktree。
+- **一键切换 Worktrees 标签页。** 右侧 Worktrees 图标按钮可循环执行：打开 VCS 并选中 Worktrees 标签页、聚焦已打开的 Worktrees 标签页、关闭 VCS 面板。
 
 ### 截图
 
@@ -140,13 +146,15 @@ When the table is long, the active repository row stays visible at the top of th
 
 ### 功能
 
-- 从 Git 主菜单或 Git 工具窗口下拉菜单打开 Worktrees 标签页。
+- 从 Git 主菜单、Git 工具窗口下拉菜单或右侧 Worktrees 图标按钮打开 Worktrees 标签页。
+- 点击右侧 Worktrees 图标按钮可循环切换三种状态：打开 VCS 并选中 Worktrees 标签页、聚焦已打开的 Worktrees 标签页、关闭 VCS 面板。
 - 优先复用 Version Control / Git 工具窗口内可关闭的 `Worktrees` 标签页；必要时回退到独立的 `Git Worktrees` 工具窗口。
 - 使用 `git worktree list --porcelain` 列出 linked worktree。
 - 展示 `Worktree`、`Branch` 和 `Location` 三列。
 - Worktree 位于当前 Git root 内时，`Location` 显示相对路径；位于 root 外时，回退显示绝对路径。
 - 主 worktree 加粗显示，当前打开的 worktree 显示勾选图标。
 - detached HEAD worktree 显示为 `detached`。
+- `Dirty` 列以红色标记显示有未提交变更的 worktree。
 - 可通过左侧箭头、双击或右键菜单折叠和展开仓库行。
 - 长表格滚动时，当前仓库分组行会固定在顶部，并在下一个仓库分组到达时自然推走。
 - 工具栏保留 Refresh，右键菜单提供 Checkout、Open、Delete Worktree。

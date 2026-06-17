@@ -4,11 +4,18 @@
 
 ## [Unreleased]
 
-## [2026.0605.0] - 2026-06-05
+## [2026.0617.0] - 2026-06-17
+
+### Added
+
+- Add a `Dirty` column that shows whether each worktree has uncommitted changes, using red text for dirty entries.
+- Implement a 3-state toggle for the right-side Worktrees icon button: activate VCS with the Worktrees tab, select an already-visible Worktrees tab, or hide the VCS panel.
 
 ### Fixed
 
 - Hide the duplicate `Delete` branch menu item when `Delete Branch / Worktree` is shown for branches already linked to another worktree.
+- Speed up bulk worktree deletion by batching Git commands and reducing per-repository refreshes.
+- Handle `Invalid argument` errors during leftover worktree directory cleanup on Windows.
 
 ## [2026.0519.0] - 2026-05-19
 
@@ -95,8 +102,8 @@
 - Configure the plugin for IntelliJ Platform build `252` and newer.
 - Configure GitHub release publishing through signed JetBrains Marketplace upload using repository secrets.
 
-[Unreleased]: https://github.com/devdengchao/git-worktrees-4-idea/compare/2026.0605.0...HEAD
-[2026.0605.0]: https://github.com/devdengchao/git-worktrees-4-idea/compare/2026.0519.0...2026.0605.0
+[Unreleased]: https://github.com/devdengchao/git-worktrees-4-idea/compare/2026.0617.0...HEAD
+[2026.0617.0]: https://github.com/devdengchao/git-worktrees-4-idea/compare/2026.0519.0...2026.0617.0
 [2026.0519.0]: https://github.com/devdengchao/git-worktrees-4-idea/compare/2026.0510.0...2026.0519.0
 [1.1.0]: https://github.com/devdengchao/git-worktrees-4-idea/compare/1.0.0...1.1.0
 [1.0.0]: https://github.com/devdengchao/git-worktrees-4-idea/commits/1.0.0
